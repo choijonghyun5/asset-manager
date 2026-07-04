@@ -474,11 +474,11 @@ function App(){
   const currentMonthSnapshotted = sortedSnaps.some(s=>s.yearMonth===monthKey());
 
   const achievementDefs = [
-    {id:'m100',label:'첫 100만원',icon:'🌱',test:()=>totalAssets>=1000000},
-    {id:'m500',label:'500만원 달성',icon:'🌿',test:()=>totalAssets>=5000000},
-    {id:'m1000',label:'1000만원 달성',icon:'🌳',test:()=>totalAssets>=10000000},
-    {id:'streak3',label:'3개월 연속 기록',icon:'🔥',test:()=>sortedSnaps.length>=3},
-    {id:'streak6',label:'6개월 연속 기록',icon:'🏆',test:()=>sortedSnaps.length>=6},
+    {id:'m100',label:'1000만원 달성',icon:'🌱',test:()=>totalAssets>=1000000},
+    {id:'m500',label:'5000만원 달성',icon:'🌿',test:()=>totalAssets>=5000000},
+    {id:'m1000',label:'1억 달성',icon:'🌳',test:()=>totalAssets>=10000000},
+    {id:'streak3',label:'5억 달성',icon:'🔥',test:()=>sortedSnaps.length>=3},
+    {id:'streak6',label:'10억 달성',icon:'🏆',test:()=>sortedSnaps.length>=6},
     {id:'goal',label:'목표 달성',icon:'🎯',test:()=>achieveRate>=100},
   ];
 
@@ -828,7 +828,7 @@ function App(){
         </div>
 
         <div className="footer-note">
-          ⓘ 자산 데이터는 로그인 없이 이 앱 안에 자동 저장됩니다. 실 서비스 배포 시에는 Firebase Authentication + Firestore, 웹 푸시/이메일 알림, Firebase Hosting 배포가 추가로 필요합니다. 환율은 open.er-api.com에서 실시간으로 가져오고(실패 시 기본값 사용), AI 분석은 실제 Claude API를 호출합니다.
+          
         </div>
       </section>
     </main>
