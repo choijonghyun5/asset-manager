@@ -664,12 +664,12 @@ function App(){
               return (
                 <div className="itemCard" style={{background:'var(--surface-alt)',boxShadow:'none'}} key={t}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                    <div style={{fontWeight:700,display:'flex',alignItems:'center'}}>
-                      <span className="swatch" style={{display:'inline-block',width:10,height:10,borderRadius:'50%',background:typeColor[t],marginRight:8}}></span>{t}
+                    <div style={{fontWeight:700,display:'flex',alignItems:'center',whiteSpace:'nowrap',flexShrink:0,marginRight:10}}>
+                      <span className="swatch" style={{display:'inline-block',width:10,height:10,borderRadius:'50%',background:typeColor[t],marginRight:8,flexShrink:0}}></span>{t}
                     </div>
                     <div style={{textAlign:'right',fontSize:13}}>
-                      <div>현재 {cur.toFixed(1)}% / 목표 {target}%
-                        <span className={diff>=0?'pos':'neg'} style={{marginLeft:8,fontWeight:700}}>{diff>=0?'▲':'▼'} {Math.abs(diff).toFixed(1)}%p</span></div>
+                      <div style={{whiteSpace:'nowrap'}}>현재 {cur.toFixed(1)}% / 목표 {target}%</div>
+                      <div className={diff>=0?'pos':'neg'} style={{fontWeight:700,marginTop:2,whiteSpace:'nowrap'}}>{diff>=0?'▲':'▼'} {Math.abs(diff).toFixed(1)}%p</div>
                       <div style={{marginTop:4,color:'var(--sub)',fontSize:12}}>
                         {Math.abs(amountDiff)<1 ? '목표 금액과 일치' :
                           amountDiff>0 ? `목표보다 ${fmtWon(amountDiff)} 초과 보유` : `목표까지 ${fmtWon(Math.abs(amountDiff))} 부족`}

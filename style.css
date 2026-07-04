@@ -235,9 +235,10 @@ html.apple .primaryButton{background:var(--metal-blue);color:#EEF2F5;}
 .donut-col-label{font-size:12px;font-weight:700;color:var(--sub);}
 .allocEditor{display:flex;flex-direction:column;gap:14px;margin-top:18px;}
 .allocRow{display:flex;flex-direction:column;gap:6px;}
-.allocRowHead{display:flex;justify-content:space-between;align-items:center;font-size:13px;}
+.allocRowHead{display:flex;justify-content:space-between;align-items:center;font-size:13px;gap:10px;}
+.allocRowHead>span:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .allocRowHead .swatch{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;}
-.allocRowHead .allocVal{font-weight:700;}
+.allocRowHead .allocVal{font-weight:700;flex-shrink:0;}
 .allocRow input[type="range"]{margin:0;}
 .allocSumRow{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:16px;background:var(--surface-alt);font-size:13px;font-weight:700;margin-top:4px;}
 .allocSumRow.warn{color:var(--red);}
