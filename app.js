@@ -474,11 +474,11 @@ function App(){
   const currentMonthSnapshotted = sortedSnaps.some(s=>s.yearMonth===monthKey());
 
   const achievementDefs = [
-    {id:'m100',label:'1000만원 달성',icon:'🌱',test:()=>totalAssets>=1000000},
-    {id:'m500',label:'5000만원 달성',icon:'🌿',test:()=>totalAssets>=5000000},
-    {id:'m1000',label:'1억 달성',icon:'🌳',test:()=>totalAssets>=10000000},
-    {id:'streak3',label:'5억 달성',icon:'🔥',test:()=>sortedSnaps.length>=3},
-    {id:'streak6',label:'10억 달성',icon:'🏆',test:()=>sortedSnaps.length>=6},
+    {id:'m100',label:'1000만원 달성',icon:'🌱',test:()=>totalAssets>=10000000},
+    {id:'m500',label:'5000만원 달성',icon:'🌿',test:()=>totalAssets>=50000000},
+    {id:'m1000',label:'1억 달성',icon:'🌳',test:()=>totalAssets>=100000000},
+    {id:'streak3',label:'5억 달성',icon:'🔥',test:()=>totalAssets>=500000000},
+    {id:'streak6',label:'10억 달성',icon:'🏆',test:()=>totalAssets>=1000000000},
     {id:'goal',label:'목표 달성',icon:'🎯',test:()=>achieveRate>=100},
   ];
 
