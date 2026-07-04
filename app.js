@@ -1,16 +1,20 @@
 const {useState,useEffect,useRef,useMemo,useCallback} = React;
 
-const ASSET_TYPES = ['현금','예금','적금','달러','미국주식','국내주식','ETF','코인','금','기타'];
-const INVEST_TYPES = ['미국주식','국내주식','ETF','코인','금'];
+const ASSET_TYPES = ['현금','예금','적금','달러','미국주식','국내주식','미국ETF','국내ETF','국내채권','미국채권','코인','금','은','기타'];
+const INVEST_TYPES = ['미국주식','국내주식','미국ETF','국내ETF','국내채권','미국채권','코인','금','은'];
+const USD_TYPES = ['달러','미국주식','미국채권','미국ETF'];
 const THEME_ORDER = ['default','dark','apple','glass'];
 const THEME_ICONS = {default:'☀️',dark:'🌙',apple:'🪨',glass:'💧'};
 // 테마 공통: 이미지 기준 슬레이트 블루 그라데이션 (진한 남색 → 연한 하늘빛 회색), ASSET_TYPES 순서: 현금→기타
-const SLATE_GRADIENT = ['#1E293B','#334155','#475569','#64748B','#78829B','#94A3B8','#A8B3C4','#B9C2D0','#CBD5E1','#DCE3EC'];
+const SLATE_GRADIENT = ['#1E293B','#2B394E','#334155','#3E4C64','#475569','#556277','#64748B','#71809A','#78829B','#8996AC','#94A3B8','#A8B3C4','#B9C2D0','#CBD5E1'];
+// 메탈 다크 모드 전용: 테마의 --metal-blue 톤(슬레이트→차콜)에 맞춘 더 어두운 팔레트
+const METAL_DARK_GRADIENT = ['#0D1116','#161B22','#1E252D','#262F38','#2F3A44','#394551','#43515E','#4F5F6D','#5C6D7C','#6B7E8E','#7C90A0','#8FA6B8','#A6BAC9','#BCCCD8'];
 const CHART_PALETTES = {
-  default: SLATE_GRADIENT,
-  dark:    SLATE_GRADIENT,
-  apple:   SLATE_GRADIENT,
-  glass:   SLATE_GRADIENT,
+  default:   SLATE_GRADIENT,
+  dark:      SLATE_GRADIENT,
+  apple:     SLATE_GRADIENT,      // 메탈 라이트 모드 (밝은 배경에 어울림)
+  appleDark: METAL_DARK_GRADIENT, // 메탈 다크 모드 전용 (테마색에 맞춘 더 어두운 톤)
+  glass:     SLATE_GRADIENT,
 };
 const getTypeColorMap = (theme) => {
   const palette = CHART_PALETTES[theme] || CHART_PALETTES.default;
@@ -24,6 +28,12 @@ const fmtPct = (n) => (n>0?'+':'') + n.toFixed(1) + '%';
 const monthKey = (d=new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 const monthLabel = (k) => { const [y,m]=k.split('-'); return `${y}.${m}`; };
 const addMonths = (date, n) => { const d=new Date(date); d.setMonth(d.getMonth()+n); return d; };
+const hexToRgba = (hex, alpha) => {
+  const h = (hex||'').replace('#','').trim();
+  const full = h.length===3 ? h.split('').map(c=>c+c).join('') : h;
+  const r = parseInt(full.substring(0,2),16)||0, g = parseInt(full.substring(2,4),16)||0, b = parseInt(full.substring(4,6),16)||0;
+  return `rgba(${r},${g},${b},${alpha})`;
+};
 
 async function storageGet(key){ try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; } }
 async function storageSet(key,val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error('save fail',e); } }
@@ -297,7 +307,7 @@ function AssetForm({initial,onSave,onClose}){
       <div className="inputGroup"><label>자산 이름</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="예: 토스뱅크 통장"/></div>
       <div className="inputGroup"><label>자산 종류</label>
         <select value={type} onChange={e=>setType(e.target.value)}>{ASSET_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
-      <div className="inputGroup"><label>보유 금액 {type==='달러'?'(USD)':'(원)'}</label><input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0"/></div>
+      <div className="inputGroup"><label>보유 금액 {USD_TYPES.includes(type)?'(USD)':'(원)'}</label><input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0"/></div>
       {isInvest && <div className="inputGroup"><label>매입 원금 (원, 선택)</label><input type="number" value={principal} onChange={e=>setPrincipal(e.target.value)} placeholder="0"/></div>}
       <div className="inputGroup"><label>메모</label><textarea value={memo} onChange={e=>setMemo(e.target.value)} placeholder="선택 입력"/></div>
       <div className="inputGroup"><label>등록 날짜</label><input type="date" value={date} onChange={e=>setDate(e.target.value)}/></div>
@@ -306,19 +316,44 @@ function AssetForm({initial,onSave,onClose}){
   );
 }
 
-function LedgerForm({onSave,onClose}){
-  const [date,setDate]=useState(new Date().toISOString().slice(0,7));
-  const [category,setCategory]=useState('월급');
-  const [amount,setAmount]=useState('');
-  const [note,setNote]=useState('');
+
+function SnapshotForm({initial,onSave,onClose}){
+  const [ym,setYm]=useState(initial?.yearMonth || monthKey(addMonths(new Date(),-1)));
+  const [total,setTotal]=useState(initial?.total ?? '');
+  const [showDetail,setShowDetail]=useState(!!initial?.byType && Object.values(initial.byType).some(v=>v>0));
+  const [byType,setByType]=useState(()=>{ const base={}; ASSET_TYPES.forEach(t=>base[t]=initial?.byType?.[t] || ''); return base; });
+  const detailSum = ASSET_TYPES.reduce((s,t)=>s+(Number(byType[t])||0),0);
+  const submit=()=>{
+    if(!ym){ alert('월을 선택해주세요.'); return; }
+    const finalTotal = showDetail ? detailSum : Number(total);
+    if(total===''&&!showDetail){ alert('총자산 금액을 입력해주세요.'); return; }
+    const finalByType={}; ASSET_TYPES.forEach(t=>finalByType[t]=Number(byType[t])||0);
+    onSave({id:initial?.id||uid(), yearMonth:ym, total:finalTotal,
+      byType: showDetail ? finalByType : (initial?.byType||finalByType)});
+  };
   return (
-    <Modal title="히스토리 내역 추가" onClose={onClose}>
-      <div className="inputGroup"><label>월</label><input type="month" value={date} onChange={e=>setDate(e.target.value)}/></div>
-      <div className="inputGroup"><label>항목</label><input value={category} onChange={e=>setCategory(e.target.value)} placeholder="예: 월급, 생활비, 투자"/></div>
-      <div className="inputGroup"><label>금액 (증가 +, 감소 -)</label><input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="예: -800000"/></div>
-      <div className="inputGroup"><label>메모</label><input value={note} onChange={e=>setNote(e.target.value)}/></div>
-      <div className="modalButtons"><button className="secondaryButton" onClick={onClose}>취소</button>
-        <button className="primaryButton" onClick={()=>{ if(amount==='') return; onSave({id:uid(),date,category,amount:Number(amount),note}); }}>저장</button></div>
+    <Modal title={initial?'월별 기록 수정':'과거 기록 추가'} onClose={onClose}>
+      <div className="desc" style={{marginTop:-6,marginBottom:14}}>이번달 외에 지난달, 지지난달처럼 과거의 자산 기록을 직접 입력해서 그래프에 반영할 수 있어요.</div>
+      <div className="inputGroup"><label>기록할 월</label>
+        <input type="month" value={ym} max={monthKey()} onChange={e=>setYm(e.target.value)} /></div>
+      <div className="inputGroup"><label>총자산 금액 (원)</label>
+        <input type="number" value={showDetail?detailSum:total} disabled={showDetail}
+          onChange={e=>setTotal(e.target.value)} placeholder="0"/></div>
+      <button type="button" className="smallBtn" style={{marginBottom:14}} onClick={()=>setShowDetail(s=>!s)}>
+        {showDetail?'종류별 입력 접기':'종류별로 나눠서 입력하기 (선택)'}
+      </button>
+      {showDetail && (
+        <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:6}}>
+          <div className="desc" style={{marginTop:0}}>종류별 금액을 입력하면 자동으로 합산되어 총자산에 반영돼요. 모르는 종류는 비워두면 0으로 처리돼요.</div>
+          {ASSET_TYPES.map(t=>(
+            <div className="inputGroup" key={t} style={{marginBottom:0}}>
+              <label>{t}</label>
+              <input type="number" value={byType[t]} onChange={e=>setByType(prev=>({...prev,[t]:e.target.value}))} placeholder="0"/>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="modalButtons"><button className="secondaryButton" onClick={onClose}>취소</button><button className="primaryButton" onClick={submit}>저장</button></div>
     </Modal>
   );
 }
@@ -356,11 +391,65 @@ function LineChartMulti({snapshots,series,subColor,typeColor}){
     const labels=snapshots.map(s=>monthLabel(s.yearMonth));
     const tc = typeColor || TYPE_COLOR;
     const palette=Object.values(tc);
-    const totalColor = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim() || '#4F8CFF';
-    const datasets=series.map((key,i)=>({label:key,data:snapshots.map(s=>key==='총자산'?s.total:(s.byType[key]||0)),
-      borderColor: key==='총자산' ? totalColor : (tc[key]||palette[i%palette.length]),
-      backgroundColor:'transparent',tension:.35,pointRadius:3,borderWidth:2.5}));
-    chartRef.current=new Chart(ctx,{type:'line',data:{labels,datasets},options:{maintainAspectRatio:false,
+    const rootStyle = getComputedStyle(document.documentElement);
+    const totalColor = rootStyle.getPropertyValue('--line-total').trim() || rootStyle.getPropertyValue('--blue').trim() || '#4F8CFF';
+    const showLabels = series.length===1; // 여러 시리즈를 겹쳐 볼 때는 라벨을 생략해 복잡함을 방지
+    const labelColor = rootStyle.getPropertyValue('--text').trim() || '#111827';
+
+    const datasets=series.map((key,i)=>{
+      const lineColor = key==='총자산' ? totalColor : (tc[key]||palette[i%palette.length]);
+      return {
+        label:key,
+        data:snapshots.map(s=>key==='총자산'?s.total:(s.byType[key]||0)),
+        borderColor: lineColor,
+        backgroundColor: (context)=>{
+          const {chart} = context; const {ctx:c, chartArea} = chart;
+          if(!chartArea) return hexToRgba(lineColor,.22);
+          const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          gradient.addColorStop(0, hexToRgba(lineColor,.32));
+          gradient.addColorStop(1, hexToRgba(lineColor,0));
+          return gradient;
+        },
+        fill:'origin',
+        tension:.4,
+        pointRadius:4,
+        pointHoverRadius:6,
+        pointBackgroundColor: lineColor,
+        pointBorderColor: lineColor,
+        pointBorderWidth:0,
+        borderWidth:2.5,
+      };
+    });
+
+    const valueLabelPlugin = {
+      id:'valueLabelPlugin',
+      afterDatasetsDraw(chart){
+        if(!showLabels) return;
+        const {ctx:c, chartArea} = chart;
+        c.save();
+        c.font='700 11px -apple-system,BlinkMacSystemFont,sans-serif';
+        c.fillStyle = labelColor;
+        c.textAlign='center';
+        c.textBaseline='bottom';
+        const meta = chart.getDatasetMeta(0);
+        const data = chart.data.datasets[0].data;
+        meta.data.forEach((point,i)=>{
+          const label = Math.round(data[i]).toLocaleString('ko-KR');
+          const halfW = c.measureText(label).width/2 + 2; // 여백 2px
+          // 좌우 끝점 라벨이 y축/차트 밖으로 나가 겹치지 않도록 x위치를 차트 영역 안으로 고정
+          let x = point.x;
+          if(x-halfW < chartArea.left) x = chartArea.left+halfW;
+          if(x+halfW > chartArea.right) x = chartArea.right-halfW;
+          // 라벨이 차트 상단 밖으로 나가 잘리지 않도록 y위치도 보정
+          const y = Math.max(point.y-10, chartArea.top+11);
+          c.fillText(label, x, y);
+        });
+        c.restore();
+      }
+    };
+
+    chartRef.current=new Chart(ctx,{type:'line',data:{labels,datasets},plugins:[valueLabelPlugin],options:{maintainAspectRatio:false,
+      layout:{padding:{top: showLabels?24:6}},
       interaction:{mode:'index',intersect:false},
       plugins:{legend:{display:true,labels:{color:subColor,boxWidth:10,font:{size:11}}}},
       scales:{x:{ticks:{color:subColor},grid:{display:false}},y:{ticks:{color:subColor,callback:(v)=>(v/10000).toLocaleString()+'만'},grid:{color:'rgba(128,128,128,.15)'}}}}});
@@ -382,19 +471,19 @@ function App(){
   const [metalLight,setMetalLight]=useState(false); // only relevant for apple theme
   const [tab,setTab]=useState('home');
   const [assets,setAssets]=useState([]);
-  const [goal,setGoal]=useState({targetAmount:10000000,targetAllocation:{현금:20,예금:10,적금:10,달러:10,미국주식:15,국내주식:15,ETF:10,코인:5,금:5,기타:0}});
+  const [goal,setGoal]=useState({targetAmount:10000000,targetAllocation:{현금:15,예금:8,적금:8,달러:5,미국주식:15,국내주식:10,미국ETF:8,국내ETF:7,국내채권:5,미국채권:5,코인:5,금:5,은:2,기타:2}});
   const [snapshots,setSnapshots]=useState([]);
-  const [ledger,setLedger]=useState([]);
   const [rates,setRates]=useState({USD:1380,JPY:9.1,EUR:1490,updated:null});
   const [showAssetForm,setShowAssetForm]=useState(false);
   const [editingAsset,setEditingAsset]=useState(null);
-  const [showLedgerForm,setShowLedgerForm]=useState(false);
+  const [showSnapshotForm,setShowSnapshotForm]=useState(false);
+  const [editingSnapshot,setEditingSnapshot]=useState(null);
+  const [showRecordList,setShowRecordList]=useState(false);
   const [simSavings,setSimSavings]=useState(300000);
-  const [aiText,setAiText]=useState(''); const [aiLoading,setAiLoading]=useState(false);
   const [lineSeries,setLineSeries]=useState(['총자산']);
   const [assetFilter,setAssetFilter]=useState('전체');
   const [subColor,setSubColor]=useState('#6B7280');
-  const typeColor = useMemo(()=>getTypeColorMap(theme==='apple'?'apple':theme), [theme]);
+  const typeColor = useMemo(()=>getTypeColorMap(theme==='apple' ? (metalLight?'apple':'appleDark') : theme), [theme, metalLight]);
 
   const [driveInfo,setDriveInfo]=useState({connected:false,label:'연결하기',time:''});
 
@@ -403,7 +492,7 @@ function App(){
       const saved = await storageGet('asset-os-state-v2');
       if(saved){
         setAssets(saved.assets||[]); setGoal(saved.goal||goal); setSnapshots(saved.snapshots||[]);
-        setLedger(saved.ledger||[]); setTheme(saved.theme||'default'); setMetalLight(!!saved.metalLight);
+        setTheme(saved.theme||'default'); setMetalLight(!!saved.metalLight);
         setSimSavings(saved.simSavings||300000);
       }
       setReady(true);
@@ -415,7 +504,7 @@ function App(){
     setTimeout(()=> setSubColor(getComputedStyle(document.documentElement).getPropertyValue('--sub').trim() || '#6B7280'), 50);
   },[theme,metalLight]);
 
-  useDebouncedSave('asset-os-state-v2', {assets,goal,snapshots,ledger,theme,metalLight,simSavings}, ready);
+  useDebouncedSave('asset-os-state-v2', {assets,goal,snapshots,theme,metalLight,simSavings}, ready);
 
   // 구글 드라이브 자동 저장 연동 (index.html/app.js와 동일한 방식)
   useEffect(()=>{
@@ -425,13 +514,13 @@ function App(){
   },[]);
 
   useEffect(()=>{
-    getDrivePayload = () => ({ assets, goal, snapshots, ledger, exportedAt: new Date().toISOString() });
-  },[assets,goal,snapshots,ledger]);
+    getDrivePayload = () => ({ assets, goal, snapshots, exportedAt: new Date().toISOString() });
+  },[assets,goal,snapshots]);
 
   useEffect(()=>{
     if(!ready) return;
     scheduleDriveSync();
-  },[assets,goal,snapshots,ledger,ready]);
+  },[assets,goal,snapshots,ready]);
 
   useEffect(()=>{
     fetch('https://open.er-api.com/v6/latest/USD').then(r=>r.json()).then(d=>{
@@ -439,7 +528,7 @@ function App(){
     }).catch(()=>{});
   },[]);
 
-  const krwValue = useCallback((a)=> a.type==='달러' ? a.amount*rates.USD : a.amount, [rates]);
+  const krwValue = useCallback((a)=> USD_TYPES.includes(a.type) ? a.amount*rates.USD : a.amount, [rates]);
   const totalAssets = useMemo(()=>assets.reduce((s,a)=>s+krwValue(a),0),[assets,krwValue]);
   const byType = useMemo(()=>{ const m={}; ASSET_TYPES.forEach(t=>m[t]=0); assets.forEach(a=>{m[a.type]=(m[a.type]||0)+krwValue(a);}); return m; },[assets,krwValue]);
   const targetSum = useMemo(()=>ASSET_TYPES.reduce((s,t)=>s+(goal.targetAllocation[t]||0),0),[goal.targetAllocation]);
@@ -482,9 +571,15 @@ function App(){
     {id:'goal',label:'목표 달성',icon:'🎯',test:()=>achieveRate>=100},
   ];
 
+  const upsertSnapshot = (entry) => {
+    setSnapshots(prev=>{ const others=prev.filter(s=>s.yearMonth!==entry.yearMonth); return [...others,entry]; });
+  };
   const saveSnapshot = () => {
-    const ym=monthKey(); const entry={id:uid(),yearMonth:ym,total:totalAssets,byType:{...byType}};
-    setSnapshots(prev=>{ const others=prev.filter(s=>s.yearMonth!==ym); return [...others,entry]; });
+    const ym=monthKey();
+    upsertSnapshot({id:uid(),yearMonth:ym,total:totalAssets,byType:{...byType}});
+  };
+  const deleteSnapshot = (ym) => {
+    if(confirm('이 월의 기록을 삭제할까요?')) setSnapshots(prev=>prev.filter(s=>s.yearMonth!==ym));
   };
   const handleSaveAsset = (a) => {
     setAssets(prev=>{ const exists=prev.some(p=>p.id===a.id); return exists?prev.map(p=>p.id===a.id?a:p):[...prev,a]; });
@@ -492,46 +587,18 @@ function App(){
   };
   const deleteAsset = (id) => setAssets(prev=>prev.filter(p=>p.id!==id));
 
-  const exportCSV = () => {
-    const header='이름,종류,금액,메모,등록일\n';
-    const rows=assets.map(a=>`${a.name},${a.type},${a.amount},${(a.memo||'').replace(/,/g,' ')},${a.date}`).join('\n');
-    const blob=new Blob(['\uFEFF'+header+rows],{type:'text/csv;charset=utf-8;'});
-    const url=URL.createObjectURL(blob); const link=document.createElement('a'); link.href=url; link.download='assets.csv'; link.click();
-  };
-  const exportXLSX = () => {
-    const ws=XLSX.utils.json_to_sheet(assets.map(a=>({이름:a.name,종류:a.type,금액:a.amount,메모:a.memo,등록일:a.date})));
-    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'자산'); XLSX.writeFile(wb,'assets.xlsx');
-  };
   const backupJSON = () => {
-    const blob=new Blob([JSON.stringify({assets,goal,snapshots,ledger},null,2)],{type:'application/json'});
+    const blob=new Blob([JSON.stringify({assets,goal,snapshots},null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob); const link=document.createElement('a'); link.href=url; link.download='asset-os-backup.json'; link.click();
   };
   const restoreJSON = (e) => {
     const file=e.target.files[0]; if(!file) return; const reader=new FileReader();
     reader.onload=(ev)=>{ try{ const data=JSON.parse(ev.target.result);
       if(data.assets) setAssets(data.assets); if(data.goal) setGoal(data.goal);
-      if(data.snapshots) setSnapshots(data.snapshots); if(data.ledger) setLedger(data.ledger);
+      if(data.snapshots) setSnapshots(data.snapshots);
     }catch(err){ alert('복원 실패: 올바른 백업 파일이 아닙니다.'); } };
     reader.readAsText(file);
   };
-  const runAI = async () => {
-    setAiLoading(true); setAiText('');
-    const summary={ 총자산:Math.round(totalAssets), 목표금액:goal.targetAmount, 달성률:achieveRate.toFixed(1)+'%',
-      이번달증감: thisMonthChange?Math.round(thisMonthChange.diff):null, 평균월증가액: avgMonthlyIncrease?Math.round(avgMonthlyIncrease):null,
-      평균성장률: avgGrowthRate?avgGrowthRate.toFixed(1)+'%':null,
-      현재비중: Object.fromEntries(ASSET_TYPES.map(t=>[t, totalAssets>0?+(byType[t]/totalAssets*100).toFixed(1):0])),
-      목표비중: goal.targetAllocation, 기록된달수: sortedSnaps.length };
-    try{
-      const res = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:500,
-          messages:[{role:'user',content:`너는 개인 자산관리 앱의 AI 분석 엔진이다. 아래 사용자 재무 데이터를 바탕으로 한국어로 4~6개의 짧은 인사이트 문장을 bullet 없이 줄바꿈으로 구분해서 작성해줘. 톤은 담백하고 구체적인 수치 중심으로. 데이터: ${JSON.stringify(summary)}`}]})});
-      const data = await res.json();
-      const text=(data.content||[]).map(c=>c.text||'').join('\n').trim();
-      setAiText(text||'분석 결과를 생성하지 못했습니다.');
-    }catch(e){ setAiText('AI 분석 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.'); }
-    setAiLoading(false);
-  };
-
   if(!ready) return <div style={{padding:60,textAlign:'center',color:'var(--sub)'}}>불러오는 중…</div>;
 
   const p = Math.max(0, Math.min(100, achieveRate));
@@ -606,8 +673,8 @@ function App(){
               <div><span className="itemTitle">{a.name}</span><span className="tag">{a.type}</span>
                 <div className="itemSub">{a.date}{a.memo?' · '+a.memo:''}</div></div>
               <div style={{textAlign:'right'}}>
-                <div style={{fontWeight:700}}>{a.type==='달러'?`$${a.amount.toLocaleString()}`:fmtWon(a.amount)}</div>
-                {a.type==='달러' && <div style={{fontSize:11,color:'var(--sub)'}}>≈ {fmtWon(a.amount*rates.USD)}</div>}
+                <div style={{fontWeight:700}}>{USD_TYPES.includes(a.type)?`$${a.amount.toLocaleString()}`:fmtWon(a.amount)}</div>
+                {USD_TYPES.includes(a.type) && <div style={{fontSize:11,color:'var(--sub)'}}>≈ {fmtWon(a.amount*rates.USD)}</div>}
               </div>
             </div>
             <div className="itemActions">
@@ -682,9 +749,12 @@ function App(){
         </div>
 
         <div className="sectionCard glassCard">
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6,flexWrap:'wrap',gap:8}}>
             <h3 style={{marginBottom:0}}>자산 변화 그래프</h3>
-            <button className="smallBtn" onClick={saveSnapshot}>{currentMonthSnapshotted?'이번달 갱신':'이번달 기록'}</button>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+              <button className="smallBtn" onClick={saveSnapshot}>{currentMonthSnapshotted?'이번달 갱신':'이번달 기록'}</button>
+              <button className="smallBtn" onClick={()=>{setEditingSnapshot(null); setShowSnapshotForm(true);}}>과거 기록 추가</button>
+            </div>
           </div>
           <div className="desc" style={{marginTop:6}}>매달 한 번 자산을 기록하면 추이가 쌓입니다.</div>
           {sortedSnaps.length===0 ? <div className="empty">아직 월별 기록이 없습니다.</div> : (
@@ -696,6 +766,25 @@ function App(){
                 ))}
               </div>
               <LineChartMulti snapshots={sortedSnaps} series={lineSeries.length?lineSeries:['총자산']} subColor={subColor} typeColor={typeColor} />
+              <button type="button" className="smallBtn" style={{marginTop:16}} onClick={()=>setShowRecordList(s=>!s)}>
+                {showRecordList?'월별 기록 접기 ▲':`월별 기록 보기 (${sortedSnaps.length}) ▼`}
+              </button>
+              {showRecordList && (
+                <div style={{marginTop:10,display:'flex',flexDirection:'column',gap:8}}>
+                  {[...sortedSnaps].reverse().map(s=>(
+                    <div className="itemCard" style={{background:'var(--surface-alt)',boxShadow:'none'}} key={s.yearMonth}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:8}}>
+                        <div style={{fontWeight:700}}>{monthLabel(s.yearMonth)}</div>
+                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                          <div style={{fontWeight:700}}>{fmtWon(s.total)}</div>
+                          <button className="smallBtn" onClick={()=>{setEditingSnapshot(s); setShowSnapshotForm(true);}}>수정</button>
+                          <button className="smallBtn danger" onClick={()=>deleteSnapshot(s.yearMonth)}>삭제</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -731,18 +820,6 @@ function App(){
             );
           })}
         </div>
-
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',margin:'4px 4px 10px'}}>
-          <h3 style={{fontSize:17}}>히스토리 로그</h3>
-          <button className="smallBtn" onClick={()=>setShowLedgerForm(true)}>+ 내역 추가</button>
-        </div>
-        {ledger.length===0 && <div className="empty">월급, 생활비, 투자 등 내역을 기록해보세요.</div>}
-        {[...ledger].sort((a,b)=>b.date.localeCompare(a.date)).map(l=>(
-          <div className="itemCard glassCard" key={l.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div><span className="tag">{l.date}</span><span style={{marginLeft:8,fontWeight:700}}>{l.category}</span>{l.note&&<span style={{color:'var(--sub)',fontSize:12}}> · {l.note}</span>}</div>
-            <div className={l.amount>=0?'pos':'neg'} style={{fontWeight:700}}>{fmtWon(l.amount)}</div>
-          </div>
-        ))}
       </section>
 
       {/* GOAL (simulation + achievements + AI) */}
@@ -769,13 +846,6 @@ function App(){
               return <div className={"badge"+(unlocked?'':' locked')} key={d.id}><div className="badge-icon">{d.icon}</div><div style={{fontSize:12,fontWeight:600}}>{d.label}</div></div>;
             })}
           </div>
-        </div>
-
-        <div className="sectionCard glassCard">
-          <h3>AI 자산 분석</h3>
-          <div className="desc">현재 데이터를 기반으로 Claude가 리포트를 생성합니다.</div>
-          <button className="btn" onClick={runAI} disabled={aiLoading}>{aiLoading?'분석 중…':'AI 분석 생성'}</button>
-          {aiText && <div style={{marginTop:16,fontSize:14,lineHeight:1.8,whiteSpace:'pre-line'}}>{aiText}</div>}
         </div>
       </section>
 
@@ -817,14 +887,11 @@ function App(){
             </span>
           </div>
 
-          <div className="settingItem glassCard" onClick={exportCSV}><span>📄 CSV 내보내기</span><span>›</span></div>
-          <div className="settingItem glassCard" onClick={exportXLSX}><span>📊 Excel 내보내기</span><span>›</span></div>
           <div className="settingItem glassCard" onClick={backupJSON}><span>💾 전체 백업 (JSON)</span><span>›</span></div>
           <label className="settingItem glassCard" style={{cursor:'pointer'}}>
             <span>♻️ 데이터 복원</span><span>›</span>
             <input type="file" accept=".json" onChange={restoreJSON} style={{display:'none'}} />
           </label>
-          <div className="settingItem glassCard" onClick={()=>window.print()}><span>🖨️ PDF 리포트 인쇄</span><span>›</span></div>
         </div>
 
         <div className="footer-note">
@@ -844,7 +911,9 @@ function App(){
     </nav>
 
     {showAssetForm && <AssetForm initial={editingAsset} onSave={handleSaveAsset} onClose={()=>{setShowAssetForm(false); setEditingAsset(null);}} />}
-    {showLedgerForm && <LedgerForm onSave={(l)=>{setLedger(prev=>[...prev,l]); setShowLedgerForm(false);}} onClose={()=>setShowLedgerForm(false)} />}
+    {showSnapshotForm && <SnapshotForm initial={editingSnapshot}
+      onSave={(entry)=>{ upsertSnapshot(entry); setShowSnapshotForm(false); setEditingSnapshot(null); }}
+      onClose={()=>{setShowSnapshotForm(false); setEditingSnapshot(null);}} />}
   </div>
   );
 }

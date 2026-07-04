@@ -10,6 +10,7 @@
   --radius:28px; --shadow:0 20px 45px rgba(0,0,0,.08); --border:rgba(255,255,255,.45);
   --card-blur:20px; --nav-blur:24px; --header-blur:18px; --track-bg:#DFE7F3;
   --body-bg:linear-gradient(180deg,#ffffff,#edf3ff);
+  --line-total:#4F8CFF;
 }
 html.dark{
   --background:#0F172A; --card:rgba(30,41,59,.82);
@@ -17,10 +18,12 @@ html.dark{
   --nav-bg:rgba(30,41,59,.92); --header-bg:rgba(15,23,42,.82); --header-border:rgba(255,255,255,.08);
   --text:#F8FAFC; --sub:#CBD5E1; --border:rgba(255,255,255,.08); --track-bg:#334155;
   --body-bg:#0F172A; --shadow:0 20px 45px rgba(0,0,0,.35);
+  --line-total:#5EA1FF;
 }
 html.apple{
   --blue:#8FA6B8; --green:#30D158; --orange:#FF9F0A; --red:#FF453A; --purple:#A98FD8;
   --metal-blue:linear-gradient(135deg,#E4E9EE 0%,#AEBBC6 22%,#6E8497 48%,#435364 72%,#263038 100%);
+  --metal-round:radial-gradient(170% 260% at 32% 6%, #F2F5F7 0%, #DEE5E9 14%, #C1CCD3 28%, #9FB0B9 42%, #7C919D 56%, #5D7280 68%, #445764 79%, #313F49 88%, #232D34 95%, #1B2329 100%);
   --background:#2A2C2F; --card:rgba(255,255,255,.07);
   --surface:#3A3D41; --surface-alt:#313437; --secondary-btn:#45484D;
   --nav-bg:rgba(28,30,32,.78); --header-bg:rgba(24,26,28,.7); --header-border:rgba(255,255,255,.08);
@@ -32,6 +35,7 @@ html.apple{
     repeating-linear-gradient(100deg, rgba(255,255,255,.025) 0px, rgba(255,255,255,.025) 1px, transparent 1px, transparent 3px),
     linear-gradient(165deg, #34363a, #1c1d1f 60%, #131415);
   letter-spacing:-.2px;
+  --line-total:#9FB3C4;
 }
 html.apple.metalLight{
   --background:#E7E9EC; --card:rgba(255,255,255,.55);
@@ -44,6 +48,7 @@ html.apple.metalLight{
     radial-gradient(circle at 90% 110%, #eef0f2, transparent 55%),
     repeating-linear-gradient(100deg, rgba(255,255,255,.5) 0px, rgba(255,255,255,.5) 1px, transparent 1px, transparent 3px),
     linear-gradient(165deg, #f4f5f6, #e3e5e7 60%, #d6d8db);
+  --line-total:#5C7285;
 }
 html.glass{
   --blue:#0A84FF; --green:#30D158; --orange:#FF9F0A; --red:#FF453A; --purple:#BF5AF2;
@@ -52,6 +57,7 @@ html.glass{
   --nav-bg:rgba(255,255,255,.38); --header-bg:rgba(255,255,255,.32); --header-border:rgba(255,255,255,.55);
   --text:#0B0B0F; --sub:#4B4B55; --shadow:0 25px 60px rgba(31,38,135,.18); --border:rgba(255,255,255,.65);
   --track-bg:rgba(255,255,255,.35); --card-blur:34px; --nav-blur:36px; --header-blur:30px;
+  --line-total:#0A84FF;
   --body-bg:
     radial-gradient(circle at 12% 8%, rgba(255,120,180,.55), transparent 42%),
     radial-gradient(circle at 85% 15%, rgba(120,170,255,.55), transparent 45%),
@@ -140,13 +146,13 @@ html.glass .progressCircle::after{background:#fff;}
 .sectionCard .desc{color:var(--sub);font-size:13px;margin-top:-10px;margin-bottom:16px;}
 
 /* category pills */
-.pillRow{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;scrollbar-width:none;}
+.pillRow{display:flex;gap:8px;overflow-x:auto;overflow-y:visible;padding:14px 4px 20px;margin:-14px -4px -2px;scrollbar-width:none;}
 .pillRow::-webkit-scrollbar{display:none;}
 .pill{white-space:nowrap;padding:9px 16px;border-radius:999px;background:var(--surface);color:var(--text);
   box-shadow:0 8px 18px rgba(0,0,0,.05);font-size:13px;font-weight:600;flex:0 0 auto;transition:.2s;}
 .pill.active{background:var(--blue);color:#fff;}
-html.apple .pill.active{background:var(--metal-blue);color:#EEF2F5;text-shadow:0 1px 1px rgba(0,0,0,.35);
-  border:1px solid rgba(255,255,255,.25);box-shadow:0 10px 20px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.5), inset 0 -4px 8px rgba(0,0,0,.22);}
+html.apple .pill.active{background:var(--metal-round);background-clip:padding-box;color:#EEF2F5;text-shadow:0 1px 1px rgba(0,0,0,.35);
+  border:1px solid rgba(255,255,255,.16);box-shadow:0 8px 18px rgba(0,0,0,.32), inset 0 0 10px rgba(0,0,0,.28), inset 0 1px 2px rgba(255,255,255,.4);}
 
 /* list item / card */
 .itemCard{padding:20px;border-radius:26px;margin-bottom:10px;transition:.25s;}
@@ -175,7 +181,7 @@ html.apple .btn{background:var(--metal-blue);color:#EEF2F5;text-shadow:0 1px 1px
   background:linear-gradient(135deg,var(--blue),#74AAFF);color:#fff;font-size:32px;
   box-shadow:0 18px 40px rgba(79,140,255,.35);display:flex;align-items:center;justify-content:center;z-index:400;transition:.25s;
 }
-html.apple .fab{background:var(--metal-blue);box-shadow:0 18px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.55), inset 0 -8px 14px rgba(0,0,0,.3);}
+html.apple .fab{background:var(--metal-round);background-clip:padding-box;box-shadow:0 16px 34px rgba(0,0,0,.48), inset 0 0 16px rgba(0,0,0,.3), inset 0 1px 3px rgba(255,255,255,.45);}
 .fab:active{transform:scale(.94);}
 
 /* bottom nav */
@@ -250,6 +256,8 @@ html.apple .primaryButton{background:var(--metal-blue);color:#EEF2F5;}
 .allocSumRow.warn{color:var(--red);}
 .slider{width:100%;-webkit-appearance:none;height:6px;border-radius:3px;background:var(--track-bg);outline:none;margin:16px 0;}
 .slider::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--blue);cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.3);}
+html.apple:not(.metalLight) .slider::-webkit-slider-thumb{background:#313437;box-shadow:0 2px 6px rgba(0,0,0,.5), 0 0 0 3px rgba(255,255,255,.08);}
+html.apple:not(.metalLight) .slider::-moz-range-thumb{background:#313437;border:none;box-shadow:0 2px 6px rgba(0,0,0,.5), 0 0 0 3px rgba(255,255,255,.08);}
 .badge{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 8px;border-radius:20px;text-align:center;}
 .badge-icon{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;background:linear-gradient(135deg,var(--blue),var(--purple));}
 .badge.locked{opacity:.4;}
