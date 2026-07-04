@@ -4,12 +4,18 @@ const ASSET_TYPES = ['현금','예금','적금','달러','미국주식','국내�
 const INVEST_TYPES = ['미국주식','국내주식','ETF','코인','금'];
 const THEME_ORDER = ['default','dark','apple','glass'];
 const THEME_ICONS = {default:'☀️',dark:'🌙',apple:'🪨',glass:'💧'};
-// 테마별 무채색(그레이스케일) 도넛/차트 색상 팔레트 (ASSET_TYPES 순서에 매칭)
+// 테마 공통: 파란기 없는 순수 무채색(흰색→검은색) 그라데이션 (ASSET_TYPES 순서: 현금→기타)
+const PURE_GRAYSCALE = ASSET_TYPES.map((_,i,arr)=>{
+  const t = arr.length>1 ? i/(arr.length-1) : 0;
+  const v = Math.round(255 - t*255);
+  const hex = v.toString(16).padStart(2,'0').toUpperCase();
+  return `#${hex}${hex}${hex}`;
+});
 const CHART_PALETTES = {
-  default:['#1E293B','#334155','#475569','#64748B','#78829B','#94A3B8','#A8B3C4','#B9C2D0','#CBD5E1','#DCE3EC'],
-  dark:   ['#F1F5F9','#E2E8F0','#CBD5E1','#B7C1CE','#9FADBD','#8896A8','#717F92','#94A3B8','#64748B','#4B5768'],
-  apple:  ['#E4E9EE','#C9D1D9','#AEBBC6','#94A3AE','#7C8894','#6E8497','#5A6570','#495158','#8A929B','#3A3D41'],
-  glass:  ['#1F2937','#334155','#475569','#64748B','#78829B','#94A3B8','#A8B3C4','#B9C2D0','#CBD5E1','#0F172A'],
+  default: PURE_GRAYSCALE,
+  dark:    PURE_GRAYSCALE,
+  apple:   PURE_GRAYSCALE,
+  glass:   PURE_GRAYSCALE,
 };
 const getTypeColorMap = (theme) => {
   const palette = CHART_PALETTES[theme] || CHART_PALETTES.default;
@@ -327,7 +333,7 @@ function Doughnut({data,cutout='45%',centerLine1,centerLine2,centerColor}){
   useEffect(()=>{
     const ctx=ref.current.getContext('2d');
     if(chartRef.current) chartRef.current.destroy();
-    chartRef.current=new Chart(ctx,{type:'doughnut',data:{labels:data.map(d=>d.label),datasets:[{data:data.map(d=>d.value),backgroundColor:data.map(d=>d.color),borderWidth:2,borderColor:'transparent',hoverOffset:6}]},
+    chartRef.current=new Chart(ctx,{type:'doughnut',data:{labels:data.map(d=>d.label),datasets:[{data:data.map(d=>d.value),backgroundColor:data.map(d=>d.color),borderWidth:1.5,borderColor:'rgba(128,128,128,.35)',hoverOffset:6}]},
       options:{plugins:{legend:{display:false}},cutout,maintainAspectRatio:false}});
     return ()=>chartRef.current && chartRef.current.destroy();
   },[JSON.stringify(data),cutout]);
@@ -473,11 +479,11 @@ function App(){
   const currentMonthSnapshotted = sortedSnaps.some(s=>s.yearMonth===monthKey());
 
   const achievementDefs = [
-    {id:'m100',label:'1000만원',icon:'🌱',test:()=>totalAssets>=1000000},
-    {id:'m500',label:'5000만원 달성',icon:'🌿',test:()=>totalAssets>=5000000},
-    {id:'m1000',label:'1억원 달성',icon:'🌳',test:()=>totalAssets>=10000000},
-    {id:'streak3',label:'2억원 달성',icon:'🔥',test:()=>sortedSnaps.length>=3},
-    {id:'streak6',label:'10억원 달성',icon:'🏆',test:()=>sortedSnaps.length>=6},
+    {id:'m100',label:'첫 100만원',icon:'🌱',test:()=>totalAssets>=1000000},
+    {id:'m500',label:'500만원 달성',icon:'🌿',test:()=>totalAssets>=5000000},
+    {id:'m1000',label:'1000만원 달성',icon:'🌳',test:()=>totalAssets>=10000000},
+    {id:'streak3',label:'3개월 연속 기록',icon:'🔥',test:()=>sortedSnaps.length>=3},
+    {id:'streak6',label:'6개월 연속 기록',icon:'🏆',test:()=>sortedSnaps.length>=6},
     {id:'goal',label:'목표 달성',icon:'🎯',test:()=>achieveRate>=100},
   ];
 
@@ -564,7 +570,7 @@ function App(){
           <div className="heroStats">
             <div className="statCard"><h2>{fmtWon(goal.targetAmount).replace('원','')}</h2><p>목표(원)</p></div>
             <div className="statCard"><h2 className={remaining<=0?'pos':''}>{fmtWon(Math.max(remaining,0)).replace('원','')}</h2><p>남은 금액</p></div>
-            <div className="statCard"><h2 style={{fontSize:17}}>{expectedDate}</h2><p>예상 달성일</p></div>
+            <div className="statCard"><h2 className="dateText">{expectedDate}</h2><p>예상 달성일</p></div>
           </div>
         </div>
 
@@ -823,7 +829,7 @@ function App(){
         </div>
 
         <div className="footer-note">
-         
+          ⓘ 자산 데이터는 로그인 없이 이 앱 안에 자동 저장됩니다. 실 서비스 배포 시에는 Firebase Authentication + Firestore, 웹 푸시/이메일 알림, Firebase Hosting 배포가 추가로 필요합니다. 환율은 open.er-api.com에서 실시간으로 가져오고(실패 시 기본값 사용), AI 분석은 실제 Claude API를 호출합니다.
         </div>
       </section>
     </main>
