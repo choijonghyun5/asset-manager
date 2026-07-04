@@ -599,7 +599,7 @@ function App(){
             <button key={t} className={"pill"+(assetFilter===t?' active':'')} onClick={()=>setAssetFilter(t)}>{t}</button>
           ))}
         </div>
-        {filteredAssets.length===0 && <div className="empty">등록된 자산이 없습니다. 우측 하단 + 버튼으로 추가해보세요.</div>}
+        {filteredAssets.length===0 && <div className="empty">등록된 자산이 없습니다.<span className="brMobile"> </span>우측 하단 + 버튼으로 추가해보세요.</div>}
         {filteredAssets.map(a=>(
           <div className="itemCard glassCard" key={a.id}>
             <div className="itemHead">
@@ -622,7 +622,7 @@ function App(){
       <section className={"page"+(tab==='analysis'?' active':'')}>
         <div className="sectionCard glassCard">
           <h3>자산 비중 비교</h3>
-          <div className="desc">현재 비중과 목표 비중을 비교하고, 목표 비중을 직접 조정해보세요.</div>
+          <div className="desc">현재 비중과 목표 비중을 비교하고,<span className="brMobile"> </span>목표 비중을 직접 조정해보세요.</div>
 
           <div className="donut-row">
             <div className="donut-col">
@@ -686,7 +686,7 @@ function App(){
             <h3 style={{marginBottom:0}}>자산 변화 그래프</h3>
             <button className="smallBtn" onClick={saveSnapshot}>{currentMonthSnapshotted?'이번달 갱신':'이번달 기록'}</button>
           </div>
-          <div className="desc">매달 한 번 자산을 기록하면 추이가 쌓입니다.</div>
+          <div className="desc" style={{marginTop:6}}>매달 한 번 자산을 기록하면 추이가 쌓입니다.</div>
           {sortedSnaps.length===0 ? <div className="empty">아직 월별 기록이 없습니다.</div> : (
             <>
               <div className="pillRow">
@@ -702,7 +702,7 @@ function App(){
 
         <div className="sectionCard glassCard">
           <h3>통계</h3>
-          {!stats ? <div className="empty">월별 기록이 2개 이상 쌓이면 통계가 표시됩니다.</div> : (
+          {!stats ? <div className="empty">월별 기록이 2개 이상 쌓이면<span className="brMobile"> </span>통계가 표시됩니다.</div> : (
             <div className="grid2">
               <div className="miniCard" style={{background:'var(--surface-alt)'}}><div className="lbl">최고 증가 달</div><div className="val pos">{monthLabel(stats.best.yearMonth)}</div></div>
               <div className="miniCard" style={{background:'var(--surface-alt)'}}><div className="lbl">최고 감소 달</div><div className={"val "+(stats.worst.diff<0?'neg':'pos')}>{monthLabel(stats.worst.yearMonth)}</div></div>
@@ -717,7 +717,7 @@ function App(){
 
         <div className="sectionCard glassCard">
           <h3>투자 수익 분석</h3>
-          {assets.filter(a=>INVEST_TYPES.includes(a.type)&&a.principal!=null).length===0 && <div className="empty">투자 자산에 매입 원금을 입력하면 수익률이 표시됩니다.</div>}
+          {assets.filter(a=>INVEST_TYPES.includes(a.type)&&a.principal!=null).length===0 && <div className="empty">투자 자산에 매입 원금을 입력하면<span className="brMobile"> </span>수익률이 표시됩니다.</div>}
           {assets.filter(a=>INVEST_TYPES.includes(a.type)&&a.principal!=null).map(a=>{
             const cur=krwValue(a); const profit=cur-a.principal; const rate=a.principal!==0?profit/a.principal*100:0;
             return (
