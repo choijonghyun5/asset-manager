@@ -479,6 +479,7 @@ function App(){
   const [showSnapshotForm,setShowSnapshotForm]=useState(false);
   const [editingSnapshot,setEditingSnapshot]=useState(null);
   const [showRecordList,setShowRecordList]=useState(false);
+  const [showAllocDetail,setShowAllocDetail]=useState(false);
   const [simSavings,setSimSavings]=useState(300000);
   const [lineSeries,setLineSeries]=useState(['총자산']);
   const [assetFilter,setAssetFilter]=useState('전체');
@@ -704,48 +705,56 @@ function App(){
             </div>
           </div>
 
-          <div className="allocEditor">
-            {ASSET_TYPES.map(t=>{
-              const target = goal.targetAllocation[t]||0;
-              return (
-                <div className="allocRow" key={t}>
-                  <div className="allocRowHead">
-                    <span><span className="swatch" style={{background:typeColor[t]}}></span>{t}</span>
-                    <span className="allocVal">{target}%</span>
-                  </div>
-                  <input className="slider" type="range" min="0" max="100" step="1" value={target}
-                    onChange={e=>setGoal(g=>({...g,targetAllocation:{...g.targetAllocation,[t]:Number(e.target.value)}}))} />
-                </div>
-              );
-            })}
-            <div className={"allocSumRow"+(targetSum!==100?' warn':'')}>
-              <span>목표 비중 합계</span><span>{targetSum}%{targetSum!==100?' · 100%로 맞춰주세요':' · 완성!'}</span>
-            </div>
-          </div>
+          <button type="button" className="smallBtn" style={{marginTop:16}} onClick={()=>setShowAllocDetail(s=>!s)}>
+            {showAllocDetail?'목표 비중 조정 및 상세 비교 접기 ▲':'목표 비중 조정 및 상세 비교 보기 ▼'}
+          </button>
 
-          <div style={{marginTop:18,display:'flex',flexDirection:'column',gap:10}}>
-            {ASSET_TYPES.filter(t=>(byType[t]>0)||(goal.targetAllocation[t]>0)).map(t=>{
-              const cur = totalAssets>0 ? byType[t]/totalAssets*100 : 0; const target = goal.targetAllocation[t]||0; const diff = cur-target;
-              const targetAmount = totalAssets*target/100; const amountDiff = byType[t]-targetAmount;
-              return (
-                <div className="itemCard" style={{background:'var(--surface-alt)',boxShadow:'none'}} key={t}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                    <div style={{fontWeight:700,display:'flex',alignItems:'center',whiteSpace:'nowrap',flexShrink:0,marginRight:10}}>
-                      <span className="swatch" style={{display:'inline-block',width:10,height:10,borderRadius:'50%',background:typeColor[t],marginRight:8,flexShrink:0}}></span>{t}
+          {showAllocDetail && (
+            <>
+              <div className="allocEditor" style={{marginTop:14}}>
+                {ASSET_TYPES.map(t=>{
+                  const target = goal.targetAllocation[t]||0;
+                  return (
+                    <div className="allocRow" key={t}>
+                      <div className="allocRowHead">
+                        <span><span className="swatch" style={{background:typeColor[t]}}></span>{t}</span>
+                        <span className="allocVal">{target}%</span>
+                      </div>
+                      <input className="slider" type="range" min="0" max="100" step="1" value={target}
+                        onChange={e=>setGoal(g=>({...g,targetAllocation:{...g.targetAllocation,[t]:Number(e.target.value)}}))} />
                     </div>
-                    <div style={{textAlign:'right',fontSize:13}}>
-                      <div style={{whiteSpace:'nowrap'}}>현재 {cur.toFixed(1)}% / 목표 {target}%</div>
-                      <div className={diff>=0?'pos':'neg'} style={{fontWeight:700,marginTop:2,whiteSpace:'nowrap'}}>{diff>=0?'▲':'▼'} {Math.abs(diff).toFixed(1)}%p</div>
-                      <div style={{marginTop:4,color:'var(--sub)',fontSize:12}}>
-                        {Math.abs(amountDiff)<1 ? '목표 금액과 일치' :
-                          amountDiff>0 ? `목표보다 ${fmtWon(amountDiff)} 초과 보유` : `목표까지 ${fmtWon(Math.abs(amountDiff))} 부족`}
+                  );
+                })}
+                <div className={"allocSumRow"+(targetSum!==100?' warn':'')}>
+                  <span>목표 비중 합계</span><span>{targetSum}%{targetSum!==100?' · 100%로 맞춰주세요':' · 완성!'}</span>
+                </div>
+              </div>
+
+              <div style={{marginTop:18,display:'flex',flexDirection:'column',gap:10}}>
+                {ASSET_TYPES.filter(t=>(byType[t]>0)||(goal.targetAllocation[t]>0)).map(t=>{
+                  const cur = totalAssets>0 ? byType[t]/totalAssets*100 : 0; const target = goal.targetAllocation[t]||0; const diff = cur-target;
+                  const targetAmount = totalAssets*target/100; const amountDiff = byType[t]-targetAmount;
+                  return (
+                    <div className="itemCard" style={{background:'var(--surface-alt)',boxShadow:'none'}} key={t}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                        <div style={{fontWeight:700,display:'flex',alignItems:'center',whiteSpace:'nowrap',flexShrink:0,marginRight:10}}>
+                          <span className="swatch" style={{display:'inline-block',width:10,height:10,borderRadius:'50%',background:typeColor[t],marginRight:8,flexShrink:0}}></span>{t}
+                        </div>
+                        <div style={{textAlign:'right',fontSize:13}}>
+                          <div style={{whiteSpace:'nowrap'}}>현재 {cur.toFixed(1)}% / 목표 {target}%</div>
+                          <div className={diff>=0?'pos':'neg'} style={{fontWeight:700,marginTop:2,whiteSpace:'nowrap'}}>{diff>=0?'▲':'▼'} {Math.abs(diff).toFixed(1)}%p</div>
+                          <div style={{marginTop:4,color:'var(--sub)',fontSize:12}}>
+                            {Math.abs(amountDiff)<1 ? '목표 금액과 일치' :
+                              amountDiff>0 ? `목표보다 ${fmtWon(amountDiff)} 초과 보유` : `목표까지 ${fmtWon(Math.abs(amountDiff))} 부족`}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="sectionCard glassCard">
