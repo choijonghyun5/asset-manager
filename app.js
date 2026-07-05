@@ -915,19 +915,17 @@ function App(){
             }}
           >
             <span>☁️ 구글 드라이브 자동 저장</span>
-            <span style={{display:'flex',alignItems:'center',gap:10}}>
-              {driveInfo.connected && (
-                <button
-                  className="smallBtn"
-                  onClick={(e)=>{ e.stopPropagation(); syncToDrive(); }}
-                >지금 백업</button>
-              )}
-              <span className="driveStatusWrap">
-                <span>{driveInfo.label}</span>
-                <small className="driveTime">{driveInfo.time}</small>
-              </span>
+            <span className="driveStatusWrap">
+              <span>{driveInfo.label}</span>
+              <small className="driveTime">{driveInfo.time}</small>
             </span>
           </div>
+
+          {driveInfo.connected && (
+            <div className="settingItem glassCard" style={{cursor:'pointer'}} onClick={()=>syncToDrive()}>
+              <span>⬆️ 지금 백업하기</span><span>›</span>
+            </div>
+          )}
 
           <div className="settingItem glassCard" onClick={backupJSON}><span>💾 전체 백업 (JSON)</span><span>›</span></div>
           <label className="settingItem glassCard" style={{cursor:'pointer'}}>
