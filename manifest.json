@@ -1,6 +1,6 @@
 {
-  "name": "자산 매니저",
-  "short_name": "자산 매니저",
+  "name": "asset manager",
+  "short_name": "asset",
   "icons": [
     {
       "src": "icon.png",
