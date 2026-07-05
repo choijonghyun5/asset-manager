@@ -915,9 +915,17 @@ function App(){
             }}
           >
             <span>☁️ 구글 드라이브 자동 저장</span>
-            <span className="driveStatusWrap">
-              <span>{driveInfo.label}</span>
-              <small className="driveTime">{driveInfo.time}</small>
+            <span style={{display:'flex',alignItems:'center',gap:10}}>
+              {driveInfo.connected && (
+                <button
+                  className="smallBtn"
+                  onClick={(e)=>{ e.stopPropagation(); syncToDrive(); }}
+                >지금 백업</button>
+              )}
+              <span className="driveStatusWrap">
+                <span>{driveInfo.label}</span>
+                <small className="driveTime">{driveInfo.time}</small>
+              </span>
             </span>
           </div>
 
