@@ -74,6 +74,7 @@ const DRIVE_CONNECTED_KEY = "asset_drive_connected";
 const DRIVE_LAST_SYNC_KEY = "asset_drive_last_sync";
 
 let googleAccessToken = null;
+let googleTokenExpiry = 0; // ms epoch, 토큰 만료 예정 시각
 let googleTokenClient = null;
 let googleManualConnect = false;
 let driveSyncTimer = null;
@@ -128,12 +129,18 @@ function initGoogleAuth(){
     callback: (response) => {
       if(response && response.access_token){
         googleAccessToken = response.access_token;
+        googleTokenExpiry = Date.now() + (Number(response.expires_in || 3600) * 1000) - 60000;
         setDriveConnected(true);
         syncToDrive();
       }else{
         pushDriveUI();
       }
       googleManualConnect = false;
+    },
+    error_callback: () => {
+      // 팝업이 차단되었거나 사용자가 취소한 경우에도 UI가 "저장 중..."에 멈추지 않도록 처리
+      googleManualConnect = false;
+      pushDriveUI(isDriveConnected() ? "로그인 필요" : "");
     }
   });
   if(isDriveConnected()){
@@ -172,20 +179,45 @@ function scheduleDriveSync(){
 }
 
 async function ensureAccessToken(){
-  if(googleAccessToken) return googleAccessToken;
+  // 캐시된 토큰이 아직 유효하면 그대로 사용
+  if(googleAccessToken && Date.now() < googleTokenExpiry) return googleAccessToken;
   if(!googleTokenClient) return null;
+  googleAccessToken = null; // 만료된 토큰은 폐기하고 새로 발급받는다
+
   return new Promise((resolve) => {
+    let settled = false;
     const originalCallback = googleTokenClient.callback;
-    googleTokenClient.callback = (response) => {
+    const originalErrorCallback = googleTokenClient.error_callback;
+
+    const finish = (token) => {
+      if(settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
       googleTokenClient.callback = originalCallback;
+      googleTokenClient.error_callback = originalErrorCallback;
+      resolve(token);
+    };
+
+    // 팝업 차단, 네트워크 문제 등으로 콜백이 아예 호출되지 않는 경우를 대비한 안전장치.
+    // 이게 없으면 driveSyncInProgress가 true로 계속 남아 "저장 중..."에서 멈춘다.
+    const timeoutId = setTimeout(() => finish(null), 15000);
+
+    googleTokenClient.callback = (response) => {
       if(response && response.access_token){
         googleAccessToken = response.access_token;
-        resolve(response.access_token);
+        googleTokenExpiry = Date.now() + (Number(response.expires_in || 3600) * 1000) - 60000;
+        finish(response.access_token);
       }else{
-        resolve(null);
+        finish(null);
       }
     };
-    googleTokenClient.requestAccessToken({ prompt: "" });
+    googleTokenClient.error_callback = () => finish(null);
+
+    try{
+      googleTokenClient.requestAccessToken({ prompt: "" });
+    }catch(e){
+      finish(null);
+    }
   });
 }
 
@@ -197,6 +229,7 @@ async function findDriveFileId(token){
     `https://www.googleapis.com/drive/v3/files?q=${query}&spaces=drive&fields=files(id,name)`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
+  if(res.status === 401){ googleAccessToken = null; googleTokenExpiry = 0; throw new Error("토큰 만료"); }
   if(!res.ok) return null;
   const data = await res.json();
   if(data.files && data.files.length > 0){
@@ -228,6 +261,7 @@ async function uploadDriveFileAs(token, payload, name){
       body
     }
   );
+  if(res.status === 401){ googleAccessToken = null; googleTokenExpiry = 0; throw new Error("토큰 만료"); }
   if(!res.ok) throw new Error("업로드 실패");
   const data = await res.json();
   return data.id;
@@ -250,6 +284,7 @@ async function updateDriveFile(token, fileId, payload){
       body: JSON.stringify(payload)
     }
   );
+  if(res.status === 401){ googleAccessToken = null; googleTokenExpiry = 0; throw new Error("토큰 만료"); }
   if(res.status === 404){
     localStorage.removeItem(DRIVE_FILE_ID_KEY);
     throw new Error("파일 없음");
@@ -257,15 +292,15 @@ async function updateDriveFile(token, fileId, payload){
   if(!res.ok) throw new Error("업데이트 실패");
 }
 
-async function syncToDrive(){
-  if(!isDriveConnected() || driveSyncInProgress || !getDrivePayload) return;
+async function syncToDrive(isRetry){
+  if(!isDriveConnected() || !getDrivePayload) return;
+  if(driveSyncInProgress) return; // 이미 진행 중이면 중복 실행 방지
   driveSyncInProgress = true;
   pushDriveUI("저장 중...");
   try{
     const token = await ensureAccessToken();
     if(!token){
       pushDriveUI("로그인 필요");
-      driveSyncInProgress = false;
       return;
     }
     const payload = getDrivePayload();
@@ -279,7 +314,13 @@ async function syncToDrive(){
     localStorage.setItem(DRIVE_LAST_SYNC_KEY, String(Date.now()));
     pushDriveUI();
   }catch(e){
-    pushDriveUI("저장 실패, 재시도 예정");
+    // 토큰 만료로 실패한 경우, 새 토큰을 받아 한 번 더 자동으로 재시도한다
+    if(!isRetry && String(e && e.message) === "토큰 만료"){
+      driveSyncInProgress = false;
+      await syncToDrive(true);
+      return;
+    }
+    pushDriveUI("저장 실패, 잠시 후 다시 시도해주세요");
   }finally{
     driveSyncInProgress = false;
   }
