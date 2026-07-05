@@ -574,10 +574,14 @@ function App(){
   },[remaining,avgMonthlyIncrease]);
   const simDate = useMemo(()=>{
     if(remaining<=0) return '달성 완료 🎉';
-    if(simSavings<=0) return '-';
-    const months=Math.ceil(remaining/simSavings); const d=addMonths(new Date(),months);
+    const r = avgGrowthRate ? avgGrowthRate/100 : 0;
+    if(r<=0 && simSavings<=0) return '데이터 부족';
+    let bal=totalAssets, months=0; const maxMonths=1200;
+    while(bal<goal.targetAmount && months<maxMonths){ bal=bal*(1+r)+simSavings; months++; }
+    if(months>=maxMonths) return '100년 이상 소요';
+    const d=addMonths(new Date(),months);
     return `${d.getFullYear()}년 ${d.getMonth()+1}월 (약 ${months}개월 후)`;
-  },[remaining,simSavings]);
+  },[remaining,simSavings,avgGrowthRate,totalAssets,goal.targetAmount]);
   const cumulativeGrowth = useMemo(()=>{ if(sortedSnaps.length<2) return null; const first=sortedSnaps[0].total,last=sortedSnaps[sortedSnaps.length-1].total;
     return first!==0?(last-first)/first*100:null; },[sortedSnaps]);
   const stats = useMemo(()=>{
@@ -860,10 +864,10 @@ function App(){
       <section className={"page"+(tab==='goalTab'?' active':'')}>
         <div className="sectionCard glassCard">
           <h3>목표 시뮬레이션</h3>
-          <div className="desc">월 저축 금액을 바꿔보며 목표 달성일을 확인하세요.</div>
-          <div className="val" style={{fontSize:26}}>{simSavings.toLocaleString()}원 / 월</div>
+          <div className="desc">매달 추가로 저축할 금액을 정하면, 지금까지의 자산 성장률(복리)을 반영해 목표 달성일을 계산해요.</div>
+          <div className="val" style={{fontSize:26}}>+{simSavings.toLocaleString()}원 / 월</div>
           <input className="slider" type="range" min="0" max="3000000" step="10000" value={simSavings} onChange={e=>setSimSavings(Number(e.target.value))}/>
-          <div className="desc" style={{marginBottom:6}}>현재 추세 평균: {avgMonthlyIncrease?Math.round(avgMonthlyIncrease).toLocaleString()+'원/월':'데이터 부족'}</div>
+          <div className="desc" style={{marginBottom:6}}>적용 성장률(최근 평균): {avgGrowthRate!=null?avgGrowthRate.toFixed(2)+'%/월':'데이터 부족'}</div>
           <div className="val" style={{fontSize:19}}>{simDate}</div>
         </div>
 
