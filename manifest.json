@@ -1,6 +1,6 @@
 {
-  "name": "Bucket list",
-  "short_name": "Bucket",
+  "name": "asset manager",
+  "short_name": "asset",
   "icons": [
     {
       "src": "icon.png",
