@@ -382,7 +382,7 @@ function Doughnut({data,cutout='45%',centerLine1,centerLine2,centerColor}){
 
 function LineChartMulti({snapshots,series,subColor,typeColor}){
   const ref=useRef(null); const chartRef=useRef(null);
-  const PX_PER_POINT=52; const MIN_POINTS_FOR_SCROLL=7;
+  const PX_PER_POINT=80; const MIN_POINTS_FOR_SCROLL=6;
   const needsScroll = snapshots.length>MIN_POINTS_FOR_SCROLL;
   const innerWidth = needsScroll ? (snapshots.length*PX_PER_POINT) : '100%';
   useEffect(()=>{
