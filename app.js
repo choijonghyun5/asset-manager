@@ -36,6 +36,22 @@ const hexToRgba = (hex, alpha) => {
 };
 
 async function storageGet(key){ try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }catch(e){ return null; } }
+
+/* ===== 최초 방문 안내 (홈 화면에 추가) ===== */
+const WELCOME_KEY = "asset_welcome_shown";
+function isStandaloneApp(){
+  return (
+    window.navigator.standalone === true ||
+    (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)
+  );
+}
+function isIOSDevice(){
+  const ua = navigator.userAgent || "";
+  const isIOSUA = /iPad|iPhone|iPod/.test(ua);
+  const isIPadOS = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  return isIOSUA || isIPadOS;
+}
+
 async function storageSet(key,val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ console.error('save fail',e); } }
 function useDebouncedSave(key, value, ready){
   useEffect(()=>{ if(!ready) return; const t = setTimeout(()=>{ storageSet(key,value); }, 500); return ()=>clearTimeout(t); },[value, ready]);
@@ -480,6 +496,7 @@ function App(){
   const [editingSnapshot,setEditingSnapshot]=useState(null);
   const [showRecordList,setShowRecordList]=useState(false);
   const [showAllocDetail,setShowAllocDetail]=useState(false);
+  const [showWelcome,setShowWelcome]=useState(false);
   const [simSavings,setSimSavings]=useState(300000);
   const [lineSeries,setLineSeries]=useState(['총자산']);
   const [assetFilter,setAssetFilter]=useState('전체');
@@ -528,6 +545,14 @@ function App(){
       if(d && d.rates && d.rates.KRW) setRates({USD:d.rates.KRW,JPY:d.rates.KRW/d.rates.JPY,EUR:d.rates.KRW/d.rates.EUR,updated:d.time_last_update_utc});
     }).catch(()=>{});
   },[]);
+
+  useEffect(()=>{
+    if(sessionStorage.getItem(WELCOME_KEY)) return;
+    if(isStandaloneApp()){ sessionStorage.setItem(WELCOME_KEY,"true"); return; }
+    if(!isIOSDevice()) return;
+    setShowWelcome(true);
+  },[]);
+  const closeWelcomeGuide = () => { setShowWelcome(false); sessionStorage.setItem(WELCOME_KEY,"true"); };
 
   const krwValue = useCallback((a)=> USD_TYPES.includes(a.type) ? a.amount*rates.USD : a.amount, [rates]);
   const totalAssets = useMemo(()=>assets.reduce((s,a)=>s+krwValue(a),0),[assets,krwValue]);
@@ -923,6 +948,55 @@ function App(){
     {showSnapshotForm && <SnapshotForm initial={editingSnapshot}
       onSave={(entry)=>{ upsertSnapshot(entry); setShowSnapshotForm(false); setEditingSnapshot(null); }}
       onClose={()=>{setShowSnapshotForm(false); setEditingSnapshot(null);}} />}
+
+    {showWelcome && (
+      <div className="modal" onClick={(e)=>{ if(e.target===e.currentTarget) closeWelcomeGuide(); }}>
+        <div className="modalSheet">
+          <div className="welcomeHeader">
+            <div className="welcomeEmoji">✨</div>
+            <h2>자산 매니저에 오신 걸 환영해요</h2>
+            <p className="welcomeSub">홈 화면에 추가하면 앱처럼 더 편하게 쓸 수 있어요.</p>
+          </div>
+          <div className="installGuide">
+            <div className="installStep">
+              <span className="installStepNum">1</span>
+              <div className="installStepText">
+                <strong>Safari에서 열기</strong>
+                <p>다른 앱 안에서 열었다면 Safari로 열어주세요.</p>
+              </div>
+            </div>
+            <div className="installStep">
+              <span className="installStepNum">2</span>
+              <div className="installStepText">
+                <strong>공유 버튼 탭하기</strong>
+                <p>화면 하단의 <span className="installIcon">⎋</span> 공유 아이콘을 눌러주세요.</p>
+              </div>
+            </div>
+            <div className="installStep">
+              <span className="installStepNum">3</span>
+              <div className="installStepText">
+                <strong>더보기 선택</strong>
+                <p>목록을 아래로 내려 "더보기"를 눌러주세요.</p>
+              </div>
+            </div>
+            <div className="installStep">
+              <span className="installStepNum">4</span>
+              <div className="installStepText">
+                <strong>홈 화면에 추가</strong>
+                <p>"홈 화면에 추가"를 선택하면 아이콘이 생성돼요.</p>
+              </div>
+            </div>
+          </div>
+          <div className="welcomeDriveNote">
+            <span className="welcomeDriveIcon">☁️</span>
+            <span>설정에서 구글 드라이브를 연결하면 자산 데이터가 자동으로 백업돼요.</span>
+          </div>
+          <div className="modalButtons">
+            <button className="primaryButton" style={{width:'100%'}} onClick={closeWelcomeGuide}>확인했어요</button>
+          </div>
+        </div>
+      </div>
+    )}
   </div>
   );
 }
