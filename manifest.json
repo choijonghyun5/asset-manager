@@ -1,32 +1,19 @@
 {
-  "name": "버킷리스트 - 나만의 목표 관리",
-  "short_name": "버킷리스트",
-  "description": "버킷리스트를 기록하고, 사진과 함께 완료를 축하하고, 오늘의 문구로 하루를 시작하세요.",
-  "start_url": "./index.html",
-  "scope": "./",
-  "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#F4F7FB",
-  "theme_color": "#F5F7FB",
-  "lang": "ko",
+  "name": "asset manager",
+  "short_name": "asset",
   "icons": [
     {
-      "src": "icons/icon-192.png",
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icons/icon-512-maskable.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "type": "image/png"
     }
-  ]
+  ],
+  "theme_color": "#F5F7FB",
+  "background_color": "#F5F7FB",
+  "display": "standalone"
 }
