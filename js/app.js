@@ -240,6 +240,18 @@ function getCurrentValue(assetId) {
   return list.length > 0 ? list[0].krwAmount : 0;
 }
 
+// 특정 월(YYYY-MM)에 실제로 기록된 레코드만 반환 (이전 달 값 이월 없음)
+function getRecordsForAssetInMonth(assetId, monthKeyStr) {
+  return getRecordsByAsset(assetId).filter((r) => monthKey(r.date) === monthKeyStr);
+}
+
+// 특정 월에 기록이 없으면 null (그 달 창에서는 아예 표시하지 않기 위함)
+// 같은 달에 기록이 여러 번이면 그 달 안에서 가장 최근 값을 사용
+function getAssetValueForMonth(assetId, monthKeyStr) {
+  const list = getRecordsForAssetInMonth(assetId, monthKeyStr);
+  return list.length > 0 ? list[0].krwAmount : null;
+}
+
 function getTotalAssets() {
   return state.assets.reduce((sum, a) => sum + getCurrentValue(a.id), 0);
 }
@@ -485,13 +497,29 @@ function renderAssetList() {
       </div>`;
   }
 
-  const lastDay = assetsMonthLastDay();
   const isCurrent = isAssetsMonthCurrent();
-  const total = getTotalAssetsAsOf(lastDay);
-  const rows = state.assets
+  const monthKeyStr = state.assetsMonth;
+
+  // 이월 없이, 그 달에 실제로 기록이 있는 자산만 보여준다.
+  const visible = state.assets
     .map((a) => {
-      const hasRecord = getRecordsByAsset(a.id).some((r) => r.date <= lastDay);
-      const value = hasRecord ? getAssetValueAsOf(a.id, lastDay) : 0;
+      const value = getAssetValueForMonth(a.id, monthKeyStr);
+      return value === null ? null : { asset: a, value };
+    })
+    .filter(Boolean);
+
+  if (visible.length === 0) {
+    return `
+      ${monthNav}
+      <div class="empty-state">
+        <div class="empty-title">${monthLabelKR(assetsMonthFirstDay())}에 기록된 자산이 없습니다</div>
+        <div class="sub-text">이 달에 기록을 추가하면 여기에 표시돼요</div>
+      </div>`;
+  }
+
+  const total = visible.reduce((sum, v) => sum + v.value, 0);
+  const rows = visible
+    .map(({ asset: a, value }) => {
       const pct = total > 0 ? (value / total) * 100 : 0;
       const type = typeByKey(a.typeKey);
       return `
@@ -501,8 +529,8 @@ function renderAssetList() {
             <div class="asset-type">${type.label}</div>
           </div>
           <div>
-            <div class="asset-value">${hasRecord ? formatKRW(value) : "기록 없음"}</div>
-            ${hasRecord ? `<div class="asset-pct">${pct.toFixed(1)}%</div>` : ""}
+            <div class="asset-value">${formatKRW(value)}</div>
+            <div class="asset-pct">${pct.toFixed(1)}%</div>
           </div>
         </button>`;
     })
