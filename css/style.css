@@ -1,0 +1,668 @@
+/* =========================================================
+   자산 관리 — Design system: Monochrome / Modern / Calm / Premium
+   (참고 앱 "STUDY."의 디자인 언어를 자산 관리 앱 컴포넌트에 맞춰 이식)
+   ========================================================= */
+
+@font-face {
+  font-family: "Pretendard";
+  src: url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/woff2/PretendardVariable.woff2") format("woff2-variations");
+  font-weight: 45 920;
+  font-display: swap;
+}
+
+:root {
+  /* ---- Core monochrome palette ---- */
+  --bg: #ffffff;
+  --bg-secondary: #f7f7f7;
+  --bg-elevated: #ffffff;
+  --ink: #111111;
+  --ink-soft: #6b6b6b;
+  --ink-faint: #9a9a9a;
+  --border: #e5e5e5;
+  --border-strong: #d4d4d4;
+  --disabled: #a0a0a0;
+  --overlay: rgba(17, 17, 17, 0.46);
+
+  --ink-contrast: #ffffff;
+  --ink-contrast-soft-1: rgba(255, 255, 255, 0.6);
+  --ink-contrast-soft-2: rgba(255, 255, 255, 0.7);
+
+  --bg-blur-1: rgba(255, 255, 255, 0.86);
+  --bg-blur-2: rgba(255, 255, 255, 0.92);
+
+  /* ---- 유일한 유채색: 위험/삭제/음수 표시 ---- */
+  --danger: #b4483c;
+  --danger-bg: #faf1f0;
+
+  /* ---- Type ---- */
+  --font-ui: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* ---- Radius / shadow ---- */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(17, 17, 17, 0.04), 0 1px 1px rgba(17, 17, 17, 0.03);
+  --shadow-2: 0 8px 24px rgba(17, 17, 17, 0.08), 0 2px 6px rgba(17, 17, 17, 0.04);
+  --shadow-3: 0 26px 54px rgba(17, 17, 17, 0.14), 0 8px 20px rgba(17, 17, 17, 0.06);
+
+  --glow-btn: 0 10px 22px rgba(17, 17, 17, 0.20), 0 2px 6px rgba(17, 17, 17, 0.12);
+  --glow-accent-soft: rgba(17, 17, 17, 0.10);
+  --btn-bevel-top: rgba(255, 255, 255, 0.16);
+  --btn-bevel-bottom: rgba(0, 0, 0, 0.22);
+  --card-bevel-top: rgba(255, 255, 255, 0.65);
+  --card-bevel-bottom: rgba(17, 17, 17, 0.035);
+  --input-inset: rgba(17, 17, 17, 0.05);
+
+  /* ---- Motion ---- */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast: 150ms;
+  --t-med: 220ms;
+  --t-slow: 300ms;
+
+  --sa-bottom: env(safe-area-inset-bottom, 0px);
+
+  color-scheme: light;
+}
+
+/* 시스템이 다크 모드일 때 자동으로 반전되는 동일한 무채색 시스템 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d0d0d;
+    --bg-secondary: #181818;
+    --bg-elevated: #1c1c1c;
+    --ink: #f2f2f2;
+    --ink-soft: #a3a3a3;
+    --ink-faint: #737373;
+    --border: #2a2a2a;
+    --border-strong: #3a3a3a;
+    --disabled: #5c5c5c;
+    --overlay: rgba(0, 0, 0, 0.6);
+
+    --ink-contrast: #0d0d0d;
+    --ink-contrast-soft-1: rgba(13, 13, 13, 0.55);
+    --ink-contrast-soft-2: rgba(13, 13, 13, 0.65);
+
+    --bg-blur-1: rgba(13, 13, 13, 0.86);
+    --bg-blur-2: rgba(13, 13, 13, 0.92);
+
+    --danger: #e2685a;
+    --danger-bg: #2a1a18;
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.2);
+    --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.24);
+    --shadow-3: 0 30px 60px rgba(0, 0, 0, 0.55), 0 10px 24px rgba(0, 0, 0, 0.35);
+
+    --glow-btn: 0 10px 26px rgba(255, 255, 255, 0.10), 0 2px 10px rgba(0, 0, 0, 0.5);
+    --glow-accent-soft: rgba(255, 255, 255, 0.12);
+    --btn-bevel-top: rgba(255, 255, 255, 0.65);
+    --btn-bevel-bottom: rgba(0, 0, 0, 0.12);
+    --card-bevel-top: rgba(255, 255, 255, 0.05);
+    --card-bevel-bottom: rgba(0, 0, 0, 0.4);
+    --input-inset: rgba(0, 0, 0, 0.35);
+
+    color-scheme: dark;
+  }
+}
+
+/* ===== 리셋 & 기본 ===== */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; overscroll-behavior-y: contain; }
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  word-break: keep-all;
+}
+
+input, select, textarea, button {
+  font-family: inherit;
+  font-size: 16px; /* 모바일 확대 방지 */
+}
+
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--bg);
+  position: relative;
+}
+
+@media (min-width: 481px) {
+  #app { border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+}
+
+#app-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 28px 20px 110px;
+}
+
+/* ===== 텍스트 ===== */
+.section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  margin-bottom: 10px;
+  letter-spacing: 0.01em;
+}
+
+.big-number {
+  font-family: var(--font-mono);
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.sub-text { font-size: 13px; color: var(--ink-soft); }
+.helper-text { font-size: 12px; color: var(--ink-faint); margin-top: 8px; line-height: 1.5; }
+.error-text { font-size: 13px; color: var(--danger); margin-top: 10px; }
+
+.placeholder-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 18px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.6;
+  box-shadow: inset 0 1px 0 var(--card-bevel-top), var(--shadow-1);
+}
+
+/* ===== 자산 종류 선택 그리드 ===== */
+.type-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.type-chip {
+  padding: 13px 4px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  box-shadow: var(--shadow-1);
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease), transform 0.08s ease, box-shadow var(--t-fast) var(--ease);
+}
+
+.type-chip:active { transform: scale(0.96); }
+
+.type-chip.selected {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--ink-contrast);
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 var(--btn-bevel-top), 0 6px 14px var(--glow-accent-soft);
+}
+
+/* ===== 입력창 ===== */
+.input {
+  width: 100%;
+  padding: 15px 14px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--ink);
+  box-shadow: inset 0 1px 3px var(--input-inset);
+  transition: box-shadow var(--t-fast) var(--ease), background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+
+.input:focus {
+  outline: none;
+  background: var(--bg);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1.5px var(--ink) inset;
+}
+
+.input::placeholder { color: var(--ink-faint); }
+
+/* ===== 버튼 ===== */
+.btn {
+  border: none;
+  border-radius: var(--r-pill);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: transform var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+
+.btn:active { transform: scale(0.97); opacity: 0.94; }
+
+.btn-primary {
+  width: 100%;
+  padding: 16px;
+  background: var(--ink);
+  color: var(--ink-contrast);
+  font-size: 15px;
+  box-shadow: inset 0 1px 0 var(--btn-bevel-top), inset 0 -1.5px 0 var(--btn-bevel-bottom), var(--glow-btn);
+}
+.btn-primary:active {
+  box-shadow: inset 0 1px 0 var(--btn-bevel-top), inset 0 -1px 0 var(--btn-bevel-bottom), 0 3px 8px rgba(17, 17, 17, 0.14);
+}
+
+.btn-secondary {
+  flex: 1;
+  padding: 14px;
+  background: var(--bg-secondary);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+}
+.btn-secondary:active { box-shadow: none; }
+
+.btn-danger {
+  flex: 1;
+  padding: 14px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.btn-row { display: flex; gap: 10px; }
+
+/* ===== 목록 패널 ===== */
+.list-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 var(--card-bevel-top), var(--shadow-1);
+}
+
+.asset-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  transition: background var(--t-fast) var(--ease);
+}
+
+.asset-row:last-child { border-bottom: none; }
+.asset-row:active { background: var(--bg); }
+
+.asset-name { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+.asset-type { font-size: 12px; color: var(--ink-soft); }
+.asset-value { font-family: var(--font-mono); font-size: 15px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.asset-pct { font-size: 12px; color: var(--ink-soft); margin-top: 2px; text-align: right; }
+
+.record-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.record-row:last-child { border-bottom: none; }
+
+/* ===== 빈 상태 ===== */
+.empty-state { padding: 80px 0 40px; text-align: center; color: var(--ink-faint); }
+.empty-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; color: var(--ink); }
+
+/* ===== 하단 탭바 ===== */
+.tab-bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  border-top: 1px solid var(--border);
+  background: var(--bg-blur-2);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  padding: 8px 4px calc(8px + var(--sa-bottom));
+  position: relative;
+  box-shadow: var(--shadow-3);
+}
+
+.tab-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  flex: 1;
+  padding: 6px 0 2px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 600;
+  transition: color var(--t-fast) var(--ease);
+}
+
+.tab-btn svg { width: 22px; height: 22px; stroke: currentColor; transition: transform var(--t-fast) var(--ease); }
+.tab-btn.active { color: var(--ink); }
+.tab-btn.active svg { transform: translateY(-1px) scale(1.04); }
+
+.tab-btn-add { position: relative; }
+.tab-btn-add .add-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-14px);
+  box-shadow: inset 0 1px 0 var(--btn-bevel-top), var(--glow-btn);
+  transition: transform var(--t-fast) var(--ease);
+}
+.tab-btn-add:active .add-circle { transform: translateY(-14px) scale(0.92); }
+.tab-btn-add .add-circle svg { width: 22px; height: 22px; stroke: var(--ink-contrast); }
+.tab-btn-add .tab-label { margin-top: -6px; }
+
+/* ===== 모달 (바텀시트) ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  display: flex;
+  align-items: flex-end;
+  z-index: 50;
+  animation: overlay-in var(--t-med) var(--ease);
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-sheet, .confirm-sheet {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--bg-elevated);
+  border-radius: 26px 26px 0 0;
+  padding: 10px 20px 32px;
+  max-height: 85vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+  box-shadow: inset 0 1px 0 var(--card-bevel-top), var(--shadow-3);
+  animation: sheet-in var(--t-med) cubic-bezier(0.22, 1, 0.36, 1);
+}
+.modal-sheet::-webkit-scrollbar, .confirm-sheet::-webkit-scrollbar { display: none; }
+
+@keyframes sheet-in {
+  from { transform: translateY(24px); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-strong);
+  margin: 6px auto 18px;
+}
+
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.modal-title { font-size: 17px; font-weight: 700; }
+.close-btn { border: none; background: transparent; color: var(--ink-soft); font-size: 13px; font-weight: 500; }
+
+.confirm-text { font-size: 15px; line-height: 1.55; padding-top: 2px; color: var(--ink); }
+
+.gap-8 { height: 8px; }
+.gap-12 { height: 12px; }
+.gap-16 { height: 16px; }
+.gap-20 { height: 20px; }
+.gap-24 { height: 24px; }
+.gap-32 { height: 32px; }
+
+.stack { display: flex; flex-direction: column; }
+
+/* ===== 목표 진행률 카드 ===== */
+.goal-progress-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  box-shadow: inset 0 1px 0 var(--card-bevel-top), var(--shadow-1);
+}
+
+.progress-track {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--ink);
+  border-radius: 4px;
+  transition: width var(--t-slow) var(--ease);
+}
+
+/* ===== 통계 카드 그리드 ===== */
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.stat-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px;
+  box-shadow: inset 0 1px 0 var(--card-bevel-top), var(--shadow-1);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+.delta-negative { color: var(--danger); }
+
+/* ===== 환율 표시 행 ===== */
+.fx-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  gap: 10px;
+  box-shadow: inset 0 1px 0 var(--card-bevel-top), var(--shadow-1);
+}
+
+.fx-rate {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.fx-meta {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  margin-top: 2px;
+}
+
+/* ===== 분석 탭 세그먼트 컨트롤 ===== */
+.segmented {
+  display: flex;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 3px;
+  gap: 2px;
+}
+
+.segmented button {
+  flex: 1;
+  padding: 9px 4px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+  font-weight: 500;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+
+.segmented button.active {
+  background: var(--bg-elevated);
+  color: var(--ink);
+  font-weight: 700;
+  box-shadow: var(--shadow-1);
+}
+
+/* ===== 도넛차트 + 범례 ===== */
+.donut-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13.5px;
+}
+
+.legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  flex: 1;
+  color: var(--ink);
+}
+
+.legend-pct {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+}
+
+/* ===== 현재 vs 목표 비중 비교 ===== */
+.compare-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.compare-row:last-child { border-bottom: none; }
+
+/* ===== 기간 / 자산 선택 탭 ===== */
+.period-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+
+.period-tabs::-webkit-scrollbar { display: none; }
+
+.period-tabs button {
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--shadow-1);
+  transition: all var(--t-fast) var(--ease);
+}
+
+.period-tabs button.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--ink-contrast);
+  box-shadow: inset 0 1px 0 var(--btn-bevel-top), 0 6px 14px var(--glow-accent-soft);
+}
+
+/* ===== 라인차트 박스 ===== */
+.chart-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px 10px 10px;
+  box-shadow: inset 0 1px 0 var(--card-bevel-top), var(--shadow-1);
+}
+
+/* ===== 목표 비중 설정 폼 ===== */
+.alloc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.alloc-row:last-child { border-bottom: none; }
+
+.alloc-sum-banner {
+  padding: 12px 14px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.alloc-sum-ok { background: var(--bg-secondary); color: var(--ink); border: 1px solid var(--border); }
+.alloc-sum-bad { background: var(--danger-bg); color: var(--danger); }
