@@ -271,17 +271,13 @@ function getRecordForMonth(assetId, monthKeyStr) {
   return rec.date >= firstDay && rec.date <= lastDay ? rec : null;
 }
 
-// 각 자산마다 "가장 최근 기록값을 다음 기록 전까지 유지(이월)"하는 방식으로 합산한 총자산.
-// (분석 탭 추이 그래프, 목표 달성일 예측의 "현재 자산" 기준으로만 사용한다. 오래된 기록을
-//  이월하는 방식이라, 예측 도중에 자산이 갑자기 0으로 보이지 않게 하기 위한 목적.)
-function getTotalAssets() {
-  return getTotalAssetsAsOf(todayStr());
-}
-
-// 홈 화면의 "현재 자산": 오늘이 속한 달에 실제로 기록을 남긴 자산만 합산한다(이월 없음).
+// 홈 화면/목표 예측 탭의 "현재 자산": 오늘이 속한 달에 실제로 기록을 남긴 자산만 합산한다(이월 없음).
 // 예전 달(예: 7월) 기록을 새로 입력/수정해도, 실제 현재 달(예: 9월)에 기록이 없으면
 // 그 자산은 이번 총자산에 포함되지 않는다 — 지난 달 값이 "현재 자산"처럼 보이는 문제를 막기 위함.
-// (자산 탭의 월별 목록과 동일한 규칙: getMonthOnlyAssetEntries 재사용)
+// (자산 탭의 월별 목록과 동일한 규칙: getMonthOnlyAssetEntries 재사용.
+//  분석 탭의 추이 그래프도 이제 동일하게 이월 없는 월별 합산 방식을 사용한다 — getMonthOnlyTimeline 참고.
+//  목표 달성일 예측의 "자동 계산" 월 성장률도 이제 동일하게 이월 없는 월별 합산 방식
+//  (buildMonthlyTotalsNoCarry)을 기준으로 계산한다.)
 function getCurrentMonthTotal() {
   const entries = getMonthOnlyAssetEntries(monthKey(todayStr()));
   return entries.reduce((sum, e) => sum + e.value, 0);
@@ -302,21 +298,24 @@ function getFullTotalTimeline() {
   return dates.map((d) => ({ date: d, total: getTotalAssetsAsOf(d) }));
 }
 
-// 특정 자산 종류(typeKey)에 해당하는 자산들만 합산한 총액 타임라인.
-// (추이 탭에서 이름이 아니라 종류 단위로 그래프를 볼 때 사용 — 개별 자산의 이월 방식과 동일하게
-//  각 자산의 가장 최근 기록값을 다음 기록 전까지 유지한 뒤, 같은 종류끼리 합산한다.)
-function getTotalAssetsOfTypeAsOf(typeKey, dateStr) {
-  return state.assets
-    .filter((a) => a.typeKey === typeKey)
-    .reduce((sum, a) => sum + getAssetValueAsOf(a.id, dateStr), 0);
-}
-
-function getFullTotalTimelineForType(typeKey) {
-  const assetIds = state.assets.filter((a) => a.typeKey === typeKey).map((a) => a.id);
-  const dates = Array.from(
-    new Set(state.records.filter((r) => assetIds.includes(r.assetId)).map((r) => r.date))
-  ).sort();
-  return dates.map((d) => ({ date: d, total: getTotalAssetsOfTypeAsOf(typeKey, d) }));
+// 추이 탭 전용: 이월 없이, 해당 월에 "실제로 기록된 자산 값의 합"을 그 달의 총자산으로 쓰는
+// 월별 타임라인. (getMonthOnlyAssetEntries / buildMonthlyTotalsNoCarry와 동일한 규칙이며,
+// 자산 종류(typeKey) 단위 필터링을 추가로 지원한다.)
+// typeKeyOrAll이 "__ALL__"이면 전체 자산을, 특정 typeKey면 해당 종류의 자산만 집계한다.
+// 각 포인트의 date는 해당 월의 마지막 날짜로 표시한다.
+function getMonthOnlyTimeline(typeKeyOrAll) {
+  const filterIds =
+    typeKeyOrAll === "__ALL__"
+      ? null
+      : new Set(state.assets.filter((a) => a.typeKey === typeKeyOrAll).map((a) => a.id));
+  const relevantRecords = filterIds ? state.records.filter((r) => filterIds.has(r.assetId)) : state.records;
+  const months = Array.from(new Set(relevantRecords.map((r) => monthKey(r.date)))).sort();
+  return months.map((m) => {
+    let entries = getMonthOnlyAssetEntries(m);
+    if (filterIds) entries = entries.filter((e) => filterIds.has(e.asset.id));
+    const lastDay = addDaysStr(addMonthsStr(`${m}-01`, 1), -1);
+    return { date: lastDay, total: entries.reduce((sum, e) => sum + e.value, 0) };
+  });
 }
 
 function computeMonthlyChange() {
@@ -957,11 +956,10 @@ const TREND_PERIODS = [
 
 // 두 번째 인자는 이제 개별 자산 id가 아니라 "__ALL__" 또는 자산 종류(typeKey)다.
 // (같은 이름의 자산이 여러 개 있어도 종류 단위로 묶어서 보여주기 위함)
+// 이월 없이, 각 달에 실제로 입력된 기록 값의 합을 그 달의 총자산으로 사용한다
+// (getMonthOnlyTimeline 참고 — 자산 탭의 월별 집계와 동일한 규칙).
 function getSeriesForAsset(typeKeyOrAll) {
-  if (typeKeyOrAll === "__ALL__") {
-    return getFullTotalTimeline().map((p) => ({ date: p.date, value: p.total }));
-  }
-  return getFullTotalTimelineForType(typeKeyOrAll).map((p) => ({ date: p.date, value: p.total }));
+  return getMonthOnlyTimeline(typeKeyOrAll).map((p) => ({ date: p.date, value: p.total }));
 }
 
 function appendTodayPoint(series) {
@@ -1079,29 +1077,9 @@ function bindTrendEvents() {
 }
 
 // ----- 3-3. 통계 -----
-function buildMonthlySeries() {
-  const timeline = getFullTotalTimeline();
-  if (timeline.length === 0) return [];
-  const firstDate = timeline[0].date;
-  const today = todayStr();
-  const nowMonthKey = monthKey(today);
-  let cursor = startOfMonthStr(firstDate);
-  const buckets = [];
-  let guard = 0;
-  while (monthKey(cursor) <= nowMonthKey && guard < 1200) {
-    guard++;
-    const nextMonthStart = addMonthsStr(cursor, 1);
-    const lastDayOfMonth = addDaysStr(nextMonthStart, -1);
-    const asOfDate = lastDayOfMonth < today ? lastDayOfMonth : today;
-    buckets.push({ month: monthKey(cursor), total: getTotalAssetsAsOf(asOfDate) });
-    cursor = nextMonthStart;
-  }
-  return buckets;
-}
-
-// 통계 탭 전용: 이월 없이, 자산 탭과 동일한 규칙으로 "그 달에 실제로 기록된 자산만" 합산한
+// 이월 없이, 자산 탭과 동일한 규칙으로 "그 달에 실제로 기록된 자산만" 합산한
 // 월별 총자산 시리즈. 기록이 하나도 없는 달은 시리즈에서 완전히 제외한다(0으로 잡히지 않도록).
-// (홈 화면/추이 탭/목표 예측은 기존 이월 방식을 그대로 쓰므로 건드리지 않는다.)
+// 통계 탭뿐 아니라 목표 달성일 예측의 "자동 계산" 월 성장률 산출에도 이 시리즈를 사용한다.
 function buildMonthlyTotalsNoCarry() {
   if (state.records.length === 0) return [];
   const months = Array.from(new Set(state.records.map((r) => monthKey(r.date)))).sort();
@@ -1208,9 +1186,10 @@ function bindStatsEvents() {
 // ----- 3-4. 목표 달성일 예측 (4단계) -----
 
 // 지금까지의 월별 총자산 데이터를 바탕으로 한 평균 월 성장률(비율, 0.01 = 1%).
+// 이월 없이, 그 달에 실제로 기록된 자산만 합산한 월별 총자산(buildMonthlyTotalsNoCarry)을 사용한다.
 // 데이터가 부족하면(성장률을 계산할 수 있는 구간이 2개월 미만) null을 반환한다.
 function computeAverageMonthlyGrowthRate() {
-  const monthly = buildMonthlySeries();
+  const monthly = buildMonthlyTotalsNoCarry();
   const rates = [];
   for (let i = 1; i < monthly.length; i++) {
     const prev = monthly[i - 1].total;
@@ -1280,7 +1259,7 @@ function getEffectiveGrowthRateInfo() {
 
 function renderGoalPrediction() {
   const goal = state.settings.goalAmount || 0;
-  const total = getTotalAssets();
+  const total = getCurrentMonthTotal();
 
   if (goal <= 0) {
     return `
