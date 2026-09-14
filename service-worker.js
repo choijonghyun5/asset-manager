@@ -1,6 +1,6 @@
 // 1단계 기준 앱 셸 캐싱만 담당합니다.
 // 데이터(자산/기록)는 localStorage에 저장되며 이 파일과 무관합니다.
-const CACHE_NAME = "asset-tracker-cache-v5";
+const CACHE_NAME = "asset-tracker-cache-v6";
 const APP_SHELL = [
   "./",
   "./index.html",

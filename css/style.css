@@ -456,6 +456,7 @@ input[type="date"].input::-webkit-calendar-picker-indicator {
   border-bottom: 1px solid var(--border);
 }
 .record-row:last-child { border-bottom: none; }
+.record-row-active { background: var(--border); }
 
 /* ===== 빈 상태 ===== */
 .empty-state { padding: 80px 0 40px; text-align: center; color: var(--ink-faint); }
@@ -772,7 +773,17 @@ input[type="date"].input::-webkit-calendar-picker-indicator {
   border-radius: var(--r-md);
   padding: 14px 10px 10px;
   box-shadow: inset 0 1px 0 var(--card-bevel-top), var(--shadow-1);
+  overflow: hidden;
 }
+
+.chart-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+  touch-action: pan-x;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chart-scroll::-webkit-scrollbar { display: none; }
 
 /* ===== 목표 비중 설정 폼 ===== */
 .alloc-row {

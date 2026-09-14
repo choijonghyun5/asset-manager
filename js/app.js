@@ -37,7 +37,7 @@ const state = {
 
   // 자산 탭: 조회 중인 월 (YYYY-MM), 좌우 스와이프로 변경
   assetsMonth: monthKey(todayStr()),
-  detailForm: { editing: false, name: "", typeKey: null, newAmount: "", newDate: todayStr(), error: "" },
+  detailForm: { recordId: null, name: "", typeKey: null, amount: "", date: todayStr(), error: "" },
 };
 
 const appBody = document.getElementById("app-body");
@@ -120,8 +120,6 @@ async function refreshExchangeRate() {
   const result = await fetchExchangeRate(state.settings.manualExchangeRate);
   state.fx = { rate: result.rate, source: result.source, updatedAt: result.updatedAt, loading: false };
   renderBody();
-  if (state.activeTab === "add") bindAddScreenEvents();
-  if (state.activeTab === "settings") bindSettingsEvents();
 }
 
 function getEffectiveRate() {
@@ -212,7 +210,7 @@ async function runBackupNow({ silent } = {}) {
   state.drive.busy = true;
   if (!silent) {
     state.drive.statusMessage = "백업 중...";
-    if (state.activeTab === "settings") { renderBody(); bindSettingsEvents(); }
+    if (state.activeTab === "settings") renderBody();
   }
   try {
     await uploadDriveBackup(buildBackupPayload());
@@ -224,7 +222,7 @@ async function runBackupNow({ silent } = {}) {
     state.drive.statusMessage = "백업 실패 · 잠시 후 다시 시도해주세요.";
   } finally {
     state.drive.busy = false;
-    if (state.activeTab === "settings") { renderBody(); bindSettingsEvents(); }
+    if (state.activeTab === "settings") renderBody();
   }
 }
 
@@ -240,20 +238,45 @@ function getCurrentValue(assetId) {
   return list.length > 0 ? list[0].krwAmount : 0;
 }
 
-// 특정 월(YYYY-MM)에 실제로 기록된 레코드만 반환 (이전 달 값 이월 없음)
-function getRecordsForAssetInMonth(assetId, monthKeyStr) {
-  return getRecordsByAsset(assetId).filter((r) => monthKey(r.date) === monthKeyStr);
+// 전체 기록 중 가장 최근 기록이 속한 월(YYYY-MM). 기록이 하나도 없으면 null.
+function getLatestRecordMonthKey() {
+  if (state.records.length === 0) return null;
+  const maxDate = state.records.reduce((max, r) => (r.date > max ? r.date : max), state.records[0].date);
+  return monthKey(maxDate);
 }
 
-// 특정 월에 기록이 없으면 null (그 달 창에서는 아예 표시하지 않기 위함)
-// 같은 달에 기록이 여러 번이면 그 달 안에서 가장 최근 값을 사용
-function getAssetValueForMonth(assetId, monthKeyStr) {
-  const list = getRecordsForAssetInMonth(assetId, monthKeyStr);
-  return list.length > 0 ? list[0].krwAmount : null;
+// 이월 없이, 해당 월(YYYY-MM)에 실제로 기록이 있는 자산만 집계한다.
+// (renderAssetList의 월별 집계와 동일한 규칙을 공용 함수로 분리)
+function getMonthOnlyAssetEntries(monthKeyStr) {
+  const firstDay = `${monthKeyStr}-01`;
+  const lastDay = addDaysStr(addMonthsStr(firstDay, 1), -1);
+  return state.assets
+    .map((a) => {
+      const hasRecord = getRecordsByAsset(a.id).some((r) => r.date >= firstDay && r.date <= lastDay);
+      const value = hasRecord ? getAssetValueAsOf(a.id, lastDay) : 0;
+      return { asset: a, hasRecord, value };
+    })
+    .filter((e) => e.hasRecord);
 }
 
+// 특정 월(YYYY-MM)에 해당 자산의 화면상 값을 결정하는 "그 달의 기록"을 반환한다.
+// (getMonthOnlyAssetEntries와 동일한 규칙: 그 달에 실제로 기록이 있어야 하며,
+//  여러 건이면 그 달 안에서 가장 최근 기록을 사용)
+function getRecordForMonth(assetId, monthKeyStr) {
+  const firstDay = `${monthKeyStr}-01`;
+  const lastDay = addDaysStr(addMonthsStr(firstDay, 1), -1);
+  const list = getRecordsByAsset(assetId).filter((r) => r.date <= lastDay); // 최신순 정렬됨
+  if (list.length === 0) return null;
+  const rec = list[0];
+  return rec.date >= firstDay && rec.date <= lastDay ? rec : null;
+}
+
+// 현재 총자산 = 가장 최근에 기록이 있었던 달에, "그 달에" 실제로 입력된 자산들의 합만 사용한다.
+// (다른 달에만 기록이 있고 가장 최근 달에는 기록이 없는 자산은 이월하지 않고 제외됨)
 function getTotalAssets() {
-  return state.assets.reduce((sum, a) => sum + getCurrentValue(a.id), 0);
+  const latestMonth = getLatestRecordMonthKey();
+  if (!latestMonth) return 0;
+  return getMonthOnlyAssetEntries(latestMonth).reduce((sum, e) => sum + e.value, 0);
 }
 
 // ===== 파생 데이터: 시점 기준 조회 (3단계) =====
@@ -498,27 +521,23 @@ function renderAssetList() {
   }
 
   const isCurrent = isAssetsMonthCurrent();
-  const monthKeyStr = state.assetsMonth;
 
-  // 이월 없이, 그 달에 실제로 기록이 있는 자산만 보여준다.
-  const visible = state.assets
-    .map((a) => {
-      const value = getAssetValueForMonth(a.id, monthKeyStr);
-      return value === null ? null : { asset: a, value };
-    })
-    .filter(Boolean);
+  // 이월 없이, 선택한 달에 실제로 기록을 남긴 자산만 집계한다.
+  // 그 달에 기록이 없는 자산은 "기록 없음" 표시조차 하지 않고 목록에서 완전히 제외한다.
+  const monthlyEntries = getMonthOnlyAssetEntries(state.assetsMonth);
 
-  if (visible.length === 0) {
+  if (monthlyEntries.length === 0) {
     return `
       ${monthNav}
       <div class="empty-state">
-        <div class="empty-title">${monthLabelKR(assetsMonthFirstDay())}에 기록된 자산이 없습니다</div>
-        <div class="sub-text">이 달에 기록을 추가하면 여기에 표시돼요</div>
+        <div class="empty-title">${monthLabelKR(assetsMonthFirstDay())}에 입력된 자산이 없습니다</div>
+        <div class="sub-text">이 달로 자산을 추가해보세요</div>
       </div>`;
   }
 
-  const total = visible.reduce((sum, v) => sum + v.value, 0);
-  const rows = visible
+  const total = monthlyEntries.reduce((sum, e) => sum + e.value, 0);
+
+  const rows = monthlyEntries
     .map(({ asset: a, value }) => {
       const pct = total > 0 ? (value / total) * 100 : 0;
       const type = typeByKey(a.typeKey);
@@ -570,22 +589,16 @@ function changeAssetsMonth(delta) {
   const nextKey = monthKey(addMonthsStr(assetsMonthFirstDay(), delta));
   if (nextKey > monthKey(todayStr())) return; // 미래 달로는 이동하지 않음
   state.assetsMonth = nextKey;
-  renderBody();
-  bindAssetListEvents();
+  renderBody(); // "assets" 탭이면 renderBody 내부에서 bindAssetListEvents()가 이미 호출된다.
 }
 
 function bindAssetListEvents() {
   appBody.querySelectorAll("[data-asset-id]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.detailAssetId = btn.dataset.assetId;
-      state.detailForm = {
-        editing: false,
-        name: "",
-        typeKey: null,
-        newAmount: "",
-        newDate: todayStr(),
-        error: "",
-      };
+      const assetId = btn.dataset.assetId;
+      const asset = state.assets.find((a) => a.id === assetId);
+      state.detailAssetId = assetId;
+      state.detailForm = buildDetailFormForMonth(asset, state.assetsMonth);
       renderModal();
     });
   });
@@ -991,7 +1004,7 @@ function renderTrend() {
     <div class="gap-12"></div>
     <div class="asset-select-row period-tabs" id="trend-asset-tabs">${assetChips}</div>
     <div class="gap-20"></div>
-    <div class="chart-box">${chart}</div>
+    <div class="chart-box"><div class="chart-scroll">${chart}</div></div>
     <div class="gap-16"></div>
     <div class="stat-grid">
       <div class="stat-card">
@@ -1009,6 +1022,10 @@ function renderTrend() {
 }
 
 function bindTrendEvents() {
+  // 스크롤 가능한 그래프는 가장 최근 날짜(오른쪽 끝)가 기본으로 보이게 한다.
+  const scrollBox = document.querySelector(".chart-scroll");
+  if (scrollBox) scrollBox.scrollLeft = scrollBox.scrollWidth;
+
   const periodBox = document.getElementById("trend-period-tabs");
   if (periodBox) {
     periodBox.querySelectorAll("[data-period]").forEach((btn) => {
@@ -1439,7 +1456,6 @@ function bindSettingsEvents() {
       applyTheme();
       persist();
       renderBody();
-      bindSettingsEvents();
     });
   });
 
@@ -1476,7 +1492,6 @@ function bindSettingsEvents() {
       state.settings.driveAutoBackup = !state.settings.driveAutoBackup;
       persist();
       renderBody();
-      bindSettingsEvents();
       if (state.settings.driveAutoBackup) runBackupNow({ silent: true });
     });
   }
@@ -1492,7 +1507,6 @@ async function handleDriveConnect() {
   state.drive.busy = true;
   state.drive.statusMessage = "";
   renderBody();
-  bindSettingsEvents();
 
   const result = await connectGoogleDrive();
   state.drive.busy = false;
@@ -1500,12 +1514,10 @@ async function handleDriveConnect() {
     state.drive.email = result.email;
     state.drive.statusMessage = "";
     renderBody();
-    bindSettingsEvents();
     runBackupNow({ silent: true });
   } else {
     state.drive.statusMessage = result.error || "연결에 실패했습니다.";
     renderBody();
-    bindSettingsEvents();
   }
 }
 
@@ -1514,7 +1526,6 @@ function handleDriveDisconnect() {
   state.drive.email = null;
   state.drive.statusMessage = "";
   renderBody();
-  bindSettingsEvents();
 }
 
 // ===== 모달 (자산 상세 / 목표 비중 / 성장률 기준값 / 삭제 확인) =====
@@ -1909,62 +1920,78 @@ function bindDriveModalEvents() {
 }
 
 // ----- 자산 상세 모달 -----
+// 특정 월 기준으로, 탭하는 즉시 "그 달 기록 수정" 폼을 채워서 반환한다.
+// 그 달에 기록이 없으면(원래는 목록에 안 보이므로 발생하지 않지만 방어적으로) 새 기록 추가로 대체한다.
+function buildDetailFormForMonth(asset, monthKeyStr) {
+  if (!asset) {
+    return { recordId: null, name: "", typeKey: null, amount: "", date: todayStr(), error: "" };
+  }
+  const type = typeByKey(asset.typeKey);
+  const rec = getRecordForMonth(asset.id, monthKeyStr);
+  if (rec) {
+    const amountValue = type.currency === "USD" ? rec.amount : rec.krwAmount;
+    return {
+      recordId: rec.id,
+      name: asset.name,
+      typeKey: asset.typeKey,
+      amount: formatAmountInputValue(String(amountValue)),
+      date: rec.date,
+      error: "",
+    };
+  }
+  return {
+    recordId: null,
+    name: asset.name,
+    typeKey: asset.typeKey,
+    amount: "",
+    date: `${monthKeyStr}-01`,
+    error: "",
+  };
+}
+
 function renderDetailModal() {
   const asset = state.assets.find((a) => a.id === state.detailAssetId);
   if (!asset) return "";
-  const type = typeByKey(asset.typeKey);
   const f = state.detailForm;
+  // 종류를 방금 바꿨을 수도 있으니, 금액 단위 표시는 폼에서 선택 중인 종류 기준으로 계산한다.
+  const type = typeByKey(f.typeKey || asset.typeKey);
   const records = getRecordsByAsset(asset.id);
-
-  if (f.editing) {
-    return `
-      <div class="modal-overlay" id="detail-overlay">
-        <div class="modal-sheet">
-          <div class="sheet-handle"></div>
-          <div class="modal-header">
-            <div class="modal-title">자산 수정</div>
-            <button id="detail-close" class="close-btn">닫기</button>
-          </div>
-
-          <div class="section-label">자산 이름</div>
-          <input id="edit-name" class="input" value="${escapeHtml(f.name)}" />
-
-          <div class="gap-16"></div>
-          <div class="section-label">자산 종류</div>
-          ${renderTypeGrid(f.typeKey, "edit")}
-
-          <div class="gap-20"></div>
-          <div class="btn-row">
-            <button id="edit-cancel" class="btn btn-secondary">취소</button>
-            <button id="edit-save" class="btn btn-primary" style="flex:1;">저장</button>
-          </div>
-        </div>
-      </div>
-    `;
-  }
+  const isNewRecord = !f.recordId;
 
   return `
     <div class="modal-overlay" id="detail-overlay">
       <div class="modal-sheet">
-          <div class="sheet-handle"></div>
+        <div class="sheet-handle"></div>
         <div class="modal-header">
-          <div class="modal-title">${escapeHtml(asset.name)}</div>
+          <div class="modal-title">자산 수정</div>
           <button id="detail-close" class="close-btn">닫기</button>
         </div>
-        <div class="sub-text">${type.label}</div>
+
+        <div class="section-label">자산 이름</div>
+        <input id="edit-name" class="input" value="${escapeHtml(f.name)}" />
 
         <div class="gap-16"></div>
-        <div class="section-label">기록 추가</div>
-        <input id="new-amount" class="input" type="text" inputmode="decimal"
+        <div class="section-label">자산 종류</div>
+        ${renderTypeGrid(f.typeKey, "edit")}
+
+        <div class="gap-16"></div>
+        <div class="section-label">${monthLabelKR(`${state.assetsMonth}-01`)} 금액</div>
+        <input id="edit-amount" class="input" type="text" inputmode="decimal"
           placeholder="${type.currency === "USD" ? "달러 금액" : "원화 금액"}"
-          value="${escapeHtml(f.newAmount)}" />
-        ${type.currency === "USD" ? `<div class="helper-text" id="new-amount-preview"></div>` : ""}
+          value="${escapeHtml(f.amount)}" />
+        ${type.currency === "USD" ? `<div class="helper-text" id="edit-amount-preview"></div>` : ""}
+
         <div class="gap-8"></div>
-        <input id="new-date" class="input" type="date" value="${f.newDate}" />
-        <div class="helper-text">날짜를 지난달로 바꾸면 지난달 금액으로도 기록을 남길 수 있어요.</div>
+        <input id="edit-date" class="input" type="date" value="${f.date}" />
+        ${
+          isNewRecord
+            ? `<div class="helper-text">이 달에는 아직 기록이 없어 새 기록으로 저장됩니다.</div>`
+            : ""
+        }
         ${f.error ? `<div class="error-text">${escapeHtml(f.error)}</div>` : ""}
-        <div class="gap-12"></div>
-        <button id="add-record-btn" class="btn btn-primary">기록 추가</button>
+
+        <div class="gap-20"></div>
+        <button id="edit-save" class="btn btn-primary" style="width:100%;">저장</button>
 
         <div class="gap-24"></div>
         <div class="section-label">기록 내역</div>
@@ -1975,7 +2002,7 @@ function renderDetailModal() {
             : `<div class="list-panel">${records
                 .map(
                   (r) => `
-              <div class="record-row">
+              <div class="record-row${r.id === f.recordId ? " record-row-active" : ""}">
                 <span class="sub-text">${formatDateKR(r.date)}</span>
                 <span class="asset-value">
                   ${formatKRW(r.krwAmount)}
@@ -1987,20 +2014,17 @@ function renderDetailModal() {
         }
 
         <div class="gap-24"></div>
-        <div class="btn-row">
-          <button id="edit-open" class="btn btn-secondary">이름/종류 수정</button>
-          <button id="delete-open" class="btn btn-danger">삭제</button>
-        </div>
+        <button id="delete-open" class="btn btn-danger" style="width:100%;">자산 삭제</button>
       </div>
     </div>
   `;
 }
 
-function updateDetailUsdPreview(asset) {
-  const el = document.getElementById("new-amount-preview");
+function updateDetailUsdPreview() {
+  const el = document.getElementById("edit-amount-preview");
   if (!el) return;
   const rate = getEffectiveRate();
-  const amt = parseAmountInputValue(state.detailForm.newAmount);
+  const amt = parseAmountInputValue(state.detailForm.amount);
   if (!amt || isNaN(amt) || amt <= 0) {
     el.textContent = `현재 환율 ${formatRate(rate)}원이 적용됩니다`;
     return;
@@ -2017,69 +2041,76 @@ function bindDetailModalEvents() {
   });
   document.getElementById("detail-close").addEventListener("click", closeDetailModal);
 
-  if (state.detailForm.editing) {
-    document.getElementById("edit-name").addEventListener("input", (e) => {
-      state.detailForm.name = e.target.value;
-    });
-    modalRoot.querySelector('[data-group="edit"]').querySelectorAll("[data-type-key]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        state.detailForm.typeKey = btn.dataset.typeKey;
-        renderModal();
-      });
-    });
-    document.getElementById("edit-cancel").addEventListener("click", () => {
-      state.detailForm.editing = false;
+  document.getElementById("edit-name").addEventListener("input", (e) => {
+    state.detailForm.name = e.target.value;
+  });
+  modalRoot.querySelector('[data-group="edit"]').querySelectorAll("[data-type-key]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.detailForm.typeKey = btn.dataset.typeKey;
       renderModal();
     });
-    document.getElementById("edit-save").addEventListener("click", () => {
-      if (!state.detailForm.name.trim() || !state.detailForm.typeKey) return;
-      asset.name = state.detailForm.name.trim();
-      asset.typeKey = state.detailForm.typeKey;
-      asset.currency = typeByKey(asset.typeKey).currency;
-      state.detailForm.editing = false;
-      commit();
-    });
-    return;
-  }
+  });
 
-  bindAmountInput(document.getElementById("new-amount"), (formatted) => {
-    state.detailForm.newAmount = formatted;
-    updateDetailUsdPreview(asset);
+  const typeForInput = typeByKey(state.detailForm.typeKey || asset.typeKey);
+  bindAmountInput(document.getElementById("edit-amount"), (formatted) => {
+    state.detailForm.amount = formatted;
+    if (typeForInput.currency === "USD") updateDetailUsdPreview();
   });
-  document.getElementById("new-date").addEventListener("change", (e) => {
-    state.detailForm.newDate = e.target.value;
+  document.getElementById("edit-date").addEventListener("change", (e) => {
+    state.detailForm.date = e.target.value;
   });
-  document.getElementById("add-record-btn").addEventListener("click", () => {
-    const num = parseAmountInputValue(state.detailForm.newAmount);
-    if (!state.detailForm.newAmount || isNaN(num) || num <= 0) {
-      state.detailForm.error = "금액을 올바르게 입력해주세요.";
+  if (typeForInput.currency === "USD") updateDetailUsdPreview();
+
+  document.getElementById("edit-save").addEventListener("click", () => {
+    const f = state.detailForm;
+    if (!f.name.trim() || !f.typeKey) {
+      f.error = "이름과 종류를 확인해주세요.";
       renderModal();
       return;
     }
+    const num = parseAmountInputValue(f.amount);
+    if (!f.amount || isNaN(num) || num <= 0) {
+      f.error = "금액을 올바르게 입력해주세요.";
+      renderModal();
+      return;
+    }
+    if (!f.date) {
+      f.error = "날짜를 확인해주세요.";
+      renderModal();
+      return;
+    }
+
+    asset.name = f.name.trim();
+    asset.typeKey = f.typeKey;
+    asset.currency = typeByKey(asset.typeKey).currency;
+
     const type = typeByKey(asset.typeKey);
     const rate = type.currency === "USD" ? getEffectiveRate() : 1;
     const krwAmount = type.currency === "USD" ? num * rate : num;
 
-    state.records.push({
-      id: uid(),
-      assetId: asset.id,
-      date: state.detailForm.newDate,
-      amount: num,
-      exchangeRate: rate,
-      krwAmount,
-    });
-    state.detailForm.newAmount = "";
-    state.detailForm.newDate = todayStr();
-    state.detailForm.error = "";
-    commit();
-  });
-  updateDetailUsdPreview(asset);
+    if (f.recordId) {
+      const rec = state.records.find((r) => r.id === f.recordId);
+      if (rec) {
+        rec.date = f.date;
+        rec.amount = num;
+        rec.exchangeRate = rate;
+        rec.krwAmount = krwAmount;
+      }
+    } else {
+      state.records.push({
+        id: uid(),
+        assetId: asset.id,
+        date: f.date,
+        amount: num,
+        exchangeRate: rate,
+        krwAmount,
+      });
+    }
 
-  document.getElementById("edit-open").addEventListener("click", () => {
-    state.detailForm.editing = true;
-    state.detailForm.name = asset.name;
-    state.detailForm.typeKey = asset.typeKey;
-    renderModal();
+    // 수정/추가한 기록의 월로 자산 탭 조회 월을 맞춰준다.
+    state.assetsMonth = monthKey(f.date);
+    closeDetailModal();
+    commit();
   });
 
   document.getElementById("delete-open").addEventListener("click", () => {
@@ -2090,13 +2121,6 @@ function bindDetailModalEvents() {
 
 function closeDetailModal() {
   state.detailAssetId = null;
-  state.detailForm = {
-    editing: false,
-    name: "",
-    typeKey: null,
-    newAmount: "",
-    newDate: todayStr(),
-    error: "",
-  };
+  state.detailForm = { recordId: null, name: "", typeKey: null, amount: "", date: todayStr(), error: "" };
   renderModal();
 }
