@@ -22,7 +22,7 @@ const state = {
   analysisTab: "composition", // composition | trend | stats | goal
   compositionView: "current", // current | compare
   trendPeriod: "3m", // 1m | 3m | 6m | 1y | all
-  trendAssetId: "__ALL__",
+  trendAssetId: "__ALL__", // "__ALL__" 또는 자산 종류(typeKey) — 이름이 아니라 종류 단위로 선택
 
   // 모달 상태
   allocModal: null, // { values, error }
@@ -271,12 +271,20 @@ function getRecordForMonth(assetId, monthKeyStr) {
   return rec.date >= firstDay && rec.date <= lastDay ? rec : null;
 }
 
-// 현재 총자산 = 가장 최근에 기록이 있었던 달에, "그 달에" 실제로 입력된 자산들의 합만 사용한다.
-// (다른 달에만 기록이 있고 가장 최근 달에는 기록이 없는 자산은 이월하지 않고 제외됨)
+// 각 자산마다 "가장 최근 기록값을 다음 기록 전까지 유지(이월)"하는 방식으로 합산한 총자산.
+// (분석 탭 추이 그래프, 목표 달성일 예측의 "현재 자산" 기준으로만 사용한다. 오래된 기록을
+//  이월하는 방식이라, 예측 도중에 자산이 갑자기 0으로 보이지 않게 하기 위한 목적.)
 function getTotalAssets() {
-  const latestMonth = getLatestRecordMonthKey();
-  if (!latestMonth) return 0;
-  return getMonthOnlyAssetEntries(latestMonth).reduce((sum, e) => sum + e.value, 0);
+  return getTotalAssetsAsOf(todayStr());
+}
+
+// 홈 화면의 "현재 자산": 오늘이 속한 달에 실제로 기록을 남긴 자산만 합산한다(이월 없음).
+// 예전 달(예: 7월) 기록을 새로 입력/수정해도, 실제 현재 달(예: 9월)에 기록이 없으면
+// 그 자산은 이번 총자산에 포함되지 않는다 — 지난 달 값이 "현재 자산"처럼 보이는 문제를 막기 위함.
+// (자산 탭의 월별 목록과 동일한 규칙: getMonthOnlyAssetEntries 재사용)
+function getCurrentMonthTotal() {
+  const entries = getMonthOnlyAssetEntries(monthKey(todayStr()));
+  return entries.reduce((sum, e) => sum + e.value, 0);
 }
 
 // ===== 파생 데이터: 시점 기준 조회 (3단계) =====
@@ -294,12 +302,29 @@ function getFullTotalTimeline() {
   return dates.map((d) => ({ date: d, total: getTotalAssetsAsOf(d) }));
 }
 
+// 특정 자산 종류(typeKey)에 해당하는 자산들만 합산한 총액 타임라인.
+// (추이 탭에서 이름이 아니라 종류 단위로 그래프를 볼 때 사용 — 개별 자산의 이월 방식과 동일하게
+//  각 자산의 가장 최근 기록값을 다음 기록 전까지 유지한 뒤, 같은 종류끼리 합산한다.)
+function getTotalAssetsOfTypeAsOf(typeKey, dateStr) {
+  return state.assets
+    .filter((a) => a.typeKey === typeKey)
+    .reduce((sum, a) => sum + getAssetValueAsOf(a.id, dateStr), 0);
+}
+
+function getFullTotalTimelineForType(typeKey) {
+  const assetIds = state.assets.filter((a) => a.typeKey === typeKey).map((a) => a.id);
+  const dates = Array.from(
+    new Set(state.records.filter((r) => assetIds.includes(r.assetId)).map((r) => r.date))
+  ).sort();
+  return dates.map((d) => ({ date: d, total: getTotalAssetsOfTypeAsOf(typeKey, d) }));
+}
+
 function computeMonthlyChange() {
-  const total = getTotalAssets();
-  const today = todayStr();
-  const monthStart = startOfMonthStr(today);
-  const beforeMonth = addDaysStr(monthStart, -1);
-  const baseTotal = getTotalAssetsAsOf(beforeMonth);
+  const total = getCurrentMonthTotal();
+  const curMonthKey = monthKey(todayStr());
+  const monthly = buildMonthlyTotalsNoCarry();
+  const prevEntry = monthly.filter((m) => m.month < curMonthKey).pop(); // 정렬되어 있으므로 마지막 = 바로 이전 기록 달
+  const baseTotal = prevEntry ? prevEntry.total : 0;
   const changeAmt = total - baseTotal;
   const changePct = baseTotal > 0 ? (changeAmt / baseTotal) * 100 : null;
   return { total, baseTotal, changeAmt, changePct };
@@ -318,7 +343,7 @@ function getGrowthBaseline() {
 }
 
 function computeOverallGrowth() {
-  const total = getTotalAssets();
+  const total = getCurrentMonthTotal();
   const baseline = getGrowthBaseline();
   const changeAmt = total - baseline.amount;
   const changePct = baseline.amount > 0 ? (changeAmt / baseline.amount) * 100 : null;
@@ -411,7 +436,7 @@ function renderBody() {
 
 // ===== 홈 화면 (3단계) =====
 function renderHome() {
-  const total = getTotalAssets();
+  const total = getCurrentMonthTotal();
   const goal = state.settings.goalAmount || 0;
   const progress = goal > 0 ? (total / goal) * 100 : null;
   const mc = computeMonthlyChange();
@@ -930,14 +955,13 @@ const TREND_PERIODS = [
   { key: "all", label: "전체", months: null },
 ];
 
-function getSeriesForAsset(assetId) {
-  if (assetId === "__ALL__") {
+// 두 번째 인자는 이제 개별 자산 id가 아니라 "__ALL__" 또는 자산 종류(typeKey)다.
+// (같은 이름의 자산이 여러 개 있어도 종류 단위로 묶어서 보여주기 위함)
+function getSeriesForAsset(typeKeyOrAll) {
+  if (typeKeyOrAll === "__ALL__") {
     return getFullTotalTimeline().map((p) => ({ date: p.date, value: p.total }));
   }
-  return getRecordsByAsset(assetId)
-    .slice()
-    .reverse()
-    .map((r) => ({ date: r.date, value: r.krwAmount }));
+  return getFullTotalTimelineForType(typeKeyOrAll).map((p) => ({ date: p.date, value: p.total }));
 }
 
 function appendTodayPoint(series) {
@@ -975,7 +999,13 @@ function renderTrend() {
     (p) => `<button data-period="${p.key}" class="${state.trendPeriod === p.key ? "active" : ""}">${p.label}</button>`
   ).join("");
 
-  const assetOptions = [{ id: "__ALL__", label: "전체 자산" }, ...state.assets.map((a) => ({ id: a.id, label: a.name }))];
+  // 자산 "이름"이 아니라 "종류" 단위로 선택하게 한다 (같은 이름의 자산이 여러 개 있어도 중복 표시되지 않도록).
+  // 실제로 등록된 종류만, ASSET_TYPES 순서 그대로 보여준다.
+  const presentTypeKeys = new Set(state.assets.map((a) => a.typeKey));
+  const assetOptions = [
+    { id: "__ALL__", label: "전체 자산" },
+    ...ASSET_TYPES.filter((t) => presentTypeKeys.has(t.key)).map((t) => ({ id: t.key, label: t.label })),
+  ];
   const assetChips = assetOptions
     .map(
       (o) => `<button data-asset="${o.id}" class="${state.trendAssetId === o.id ? "active" : ""}">${escapeHtml(o.label)}</button>`
@@ -1069,13 +1099,38 @@ function buildMonthlySeries() {
   return buckets;
 }
 
+// 통계 탭 전용: 이월 없이, 자산 탭과 동일한 규칙으로 "그 달에 실제로 기록된 자산만" 합산한
+// 월별 총자산 시리즈. 기록이 하나도 없는 달은 시리즈에서 완전히 제외한다(0으로 잡히지 않도록).
+// (홈 화면/추이 탭/목표 예측은 기존 이월 방식을 그대로 쓰므로 건드리지 않는다.)
+function buildMonthlyTotalsNoCarry() {
+  if (state.records.length === 0) return [];
+  const months = Array.from(new Set(state.records.map((r) => monthKey(r.date)))).sort();
+  return months.map((m) => {
+    const entries = getMonthOnlyAssetEntries(m);
+    return { month: m, total: entries.reduce((sum, e) => sum + e.value, 0) };
+  });
+}
+
+// 통계 탭의 누적 성장률 기준값. 사용자가 직접 설정한 기준값이 있으면 그대로 쓰고,
+// 없으면 "이월 없는 월별 총자산" 시리즈의 첫 달을 기준으로 삼는다
+// (getGrowthBaseline()은 이월 방식 타임라인을 기준으로 하므로 통계 탭에는 쓰지 않는다).
+function getStatsGrowthBaseline(monthly) {
+  const gb = state.settings.growthBaseline;
+  if (gb && typeof gb.amount === "number" && gb.amount > 0 && gb.date) {
+    return { amount: gb.amount, date: gb.date, isCustom: true };
+  }
+  if (monthly.length > 0) {
+    return { amount: monthly[0].total, date: `${monthly[0].month}-01`, isCustom: false };
+  }
+  return { amount: 0, date: null, isCustom: false };
+}
+
 function renderStats() {
-  const timeline = getFullTotalTimeline();
-  if (timeline.length === 0) {
+  const monthly = buildMonthlyTotalsNoCarry();
+  if (monthly.length === 0) {
     return `<div class="empty-state"><div class="empty-title">통계를 표시할 데이터가 없습니다</div><div class="sub-text">자산 기록이 쌓이면 통계가 계산됩니다</div></div>`;
   }
 
-  const monthly = buildMonthlySeries();
   const changes = [];
   for (let i = 1; i < monthly.length; i++) {
     changes.push({ month: monthly[i].month, amt: monthly[i].total - monthly[i - 1].total });
@@ -1088,10 +1143,15 @@ function renderStats() {
   });
   const avgChange = changes.length ? changes.reduce((s, c) => s + c.amt, 0) / changes.length : 0;
 
-  const maxTotal = Math.max(...timeline.map((p) => p.total));
-  const minTotal = Math.min(...timeline.map((p) => p.total));
+  const maxTotal = Math.max(...monthly.map((p) => p.total));
+  const minTotal = Math.min(...monthly.map((p) => p.total));
 
-  const growth = computeOverallGrowth();
+  // 누적 성장률: 기준값 대비, 실제 기록이 있는 가장 최근 달의(이월 없는) 총자산
+  const baseline = getStatsGrowthBaseline(monthly);
+  const latestTotal = monthly[monthly.length - 1].total;
+  const changeAmt = latestTotal - baseline.amount;
+  const changePct = baseline.amount > 0 ? (changeAmt / baseline.amount) * 100 : null;
+  const growth = { baseline, changeAmt, changePct };
 
   return `
     <div class="stat-grid">
@@ -1435,7 +1495,7 @@ function renderDriveSection() {
       <span class="sub-text">자동 백업</span>
       <button id="drive-autobackup-toggle" class="btn ${
         state.settings.driveAutoBackup ? "btn-primary" : "btn-secondary"
-      }" style="flex:none;padding:9px 16px;font-size:13px;">${state.settings.driveAutoBackup ? "켜짐" : "꺼짐"}</button>
+      }" style="flex:none;width:auto;padding:9px 16px;font-size:13px;">${state.settings.driveAutoBackup ? "켜짐" : "꺼짐"}</button>
     </div>
     <div class="gap-12"></div>
     <div class="btn-row">
