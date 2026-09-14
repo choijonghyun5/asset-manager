@@ -233,16 +233,12 @@ function getRecordsByAsset(assetId) {
     .sort((a, b) => (a.date < b.date ? 1 : -1)); // 최신순
 }
 
-// 비중(구성비) 계산 전용 값: 이번 달에 기록이 있으면 그 값을 쓰고,
-// 이번 달 기록이 없으면 바로 전월 기록으로 한 번만 대체한다.
-// 전월에도 기록이 없으면(즉 2개월 넘게 기록이 없으면) 0으로 처리한다(더 과거로는 이월하지 않음).
+// 비중(구성비) 계산 전용 값: 이번 달에 실제로 기록을 남긴 자산만 그 값을 쓰고,
+// 이번 달에 기록이 없으면 이월 없이 0으로 처리한다(자산 탭의 월별 목록과 동일한 규칙).
 function getAllocationValue(assetId) {
   const curMonthKey = monthKey(todayStr());
-  const prevMonthKey = monthKey(addMonthsStr(todayStr(), -1));
   const curRec = getRecordForMonth(assetId, curMonthKey);
-  if (curRec) return curRec.krwAmount;
-  const prevRec = getRecordForMonth(assetId, prevMonthKey);
-  return prevRec ? prevRec.krwAmount : 0;
+  return curRec ? curRec.krwAmount : 0;
 }
 
 // 전체 기록 중 가장 최근 기록이 속한 월(YYYY-MM). 기록이 하나도 없으면 null.
