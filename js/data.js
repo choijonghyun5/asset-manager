@@ -135,6 +135,14 @@ function greyAt(index, total) {
   return GREY_PALETTE[Math.min(pos, span)];
 }
 
+// 자산 종류(ASSET_TYPES)마다 항상 같은 색이 나오도록 고정 매핑한다.
+// (도넛차트/범례/비중 비교/목표 비중 설정 화면 전부 이 함수로 색을 맞춰서
+//  같은 자산이 화면이 바뀌어도 항상 같은 색으로 보이게 한다.)
+function typeColor(key) {
+  const idx = ASSET_TYPES.findIndex((t) => t.key === key);
+  return greyAt(idx === -1 ? 0 : idx, ASSET_TYPES.length);
+}
+
 // ===== 날짜 유틸 =====
 function toDateStr(d) {
   const mm = String(d.getMonth() + 1).padStart(2, "0");

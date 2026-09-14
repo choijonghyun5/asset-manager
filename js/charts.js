@@ -25,9 +25,15 @@ function buildDonutSVG(segments, opts = {}) {
       // 세그먼트 사이 미세한 간격(gap)을 위해 살짝 줄여줌
       const gap = segments.length > 1 ? Math.min(2, len * 0.06) : 0;
       const dashLen = Math.max(len - gap, 0);
+      // 클릭 가능한 세그먼트는 data-* 속성에 라벨/비중/금액 정보를 담아두고,
+      // 앱 쪽에서 클릭 이벤트로 읽어서 정보를 보여준다.
       rings += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${seg.color}"
         stroke-width="${stroke}" stroke-dasharray="${dashLen} ${c - dashLen}"
-        stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})" />`;
+        stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})"
+        class="donut-seg"${seg.key ? ` data-key="${escapeHtml(seg.key)}"` : ""}
+        data-label="${escapeHtml(seg.label || "")}" data-pct="${seg.pct != null ? seg.pct : ""}"
+        data-amount="${seg.amount != null ? seg.amount : ""}"
+        style="cursor:pointer;" />`;
       offset += len;
     });
   }
@@ -42,6 +48,7 @@ function buildDonutSVG(segments, opts = {}) {
         opts.centerSub
       )}</text>`
     : "";
+
 
   return `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="display:block;">${rings}${centerText}${centerSub}</svg>`;
 }

@@ -851,13 +851,20 @@ function renderComposition() {
     return renderCompositionCompare(alloc);
   }
 
-  const segments = alloc.list.map((item, i) => ({ value: item.value, color: greyAt(i, alloc.list.length) }));
+  const segments = alloc.list.map((item) => ({
+    value: item.value,
+    color: typeColor(item.key),
+    key: item.key,
+    label: item.label,
+    pct: item.pct,
+    amount: item.value,
+  }));
   const donut = buildDonutSVG(segments, { size: 156, stroke: 22 });
   const legend = alloc.list
     .map(
-      (item, i) => `
+      (item) => `
       <div class="legend-row">
-        <span class="legend-swatch" style="background:${greyAt(i, alloc.list.length)}"></span>
+        <span class="legend-swatch" style="background:${typeColor(item.key)}"></span>
         <span class="legend-label">${escapeHtml(item.label)}</span>
         <span class="legend-pct">${item.pct.toFixed(1)}%</span>
       </div>`
@@ -867,7 +874,9 @@ function renderComposition() {
   return `
     <div class="donut-wrap">
       ${donut}
-      <div class="gap-20"></div>
+      <div class="gap-8"></div>
+      <div id="comp-donut-info" class="donut-info sub-text">도넛을 탭하면 자세히 볼 수 있어요</div>
+      <div class="gap-12"></div>
       <div class="donut-legend">${legend}</div>
     </div>
     <div class="gap-24"></div>
@@ -884,8 +893,23 @@ function renderCompositionCompare(alloc) {
     .map((k) => ({ key: k, label: typeByKey(k).label, value: target[k] }))
     .sort((a, b) => b.value - a.value);
 
-  const curSegs = alloc.list.map((item, i) => ({ value: item.value, color: greyAt(i, alloc.list.length) }));
-  const tgtSegs = targetList.map((item, i) => ({ value: item.value, color: greyAt(i, targetList.length) }));
+  const curSegs = alloc.list.map((item) => ({
+    value: item.value,
+    color: typeColor(item.key),
+    key: item.key,
+    label: item.label,
+    pct: item.pct,
+    amount: item.value,
+  }));
+  // 목표 비중은 실제 금액이 없으므로, 현재 총자산 기준으로 "이 비중대로면 얼마인지"를 계산해서 보여준다.
+  const tgtSegs = targetList.map((item) => ({
+    value: item.value,
+    color: typeColor(item.key),
+    key: item.key,
+    label: item.label,
+    pct: item.value,
+    amount: (alloc.total * item.value) / 100,
+  }));
 
   const curDonut = buildDonutSVG(curSegs, { size: 128, stroke: 18 });
   const tgtDonut = buildDonutSVG(tgtSegs, { size: 128, stroke: 18 });
@@ -900,7 +924,10 @@ function renderCompositionCompare(alloc) {
       const cur = curMap[k] || 0;
       const tgt = target[k] || 0;
       return `<div class="compare-row">
-        <span class="asset-type" style="flex:1;">${typeByKey(k).label}</span>
+        <span style="display:flex;align-items:center;gap:8px;flex:1;">
+          <span class="legend-swatch" style="background:${typeColor(k)}"></span>
+          <span class="asset-type">${typeByKey(k).label}</span>
+        </span>
         <span class="sub-text" style="flex:none;">${cur.toFixed(1)}% → ${tgt.toFixed(1)}%</span>
       </div>`;
     })
@@ -908,9 +935,11 @@ function renderCompositionCompare(alloc) {
 
   return `
     <div style="display:flex;gap:14px;justify-content:center;">
-      <div style="text-align:center;">${curDonut}<div class="sub-text" style="margin-top:8px;">현재 비중</div></div>
-      <div style="text-align:center;">${tgtDonut}<div class="sub-text" style="margin-top:8px;">목표 비중</div></div>
+      <div class="donut-col" data-ctx="cur" style="text-align:center;">${curDonut}<div class="sub-text" style="margin-top:8px;">현재 비중</div></div>
+      <div class="donut-col" data-ctx="tgt" style="text-align:center;">${tgtDonut}<div class="sub-text" style="margin-top:8px;">목표 비중</div></div>
     </div>
+    <div class="gap-8"></div>
+    <div id="compare-donut-info" class="donut-info sub-text">도넛을 탭하면 자세히 볼 수 있어요</div>
     <div class="gap-24"></div>
     <div class="section-label">항목별 비교</div>
     <div class="gap-8"></div>
@@ -923,7 +952,35 @@ function renderCompositionCompare(alloc) {
   `;
 }
 
+function donutSegInfoText(seg, prefix) {
+  const label = seg.dataset.label || "";
+  const pct = parseFloat(seg.dataset.pct);
+  const amount = parseFloat(seg.dataset.amount);
+  const pctText = isNaN(pct) ? "" : ` · ${pct.toFixed(1)}%`;
+  const amountText = isNaN(amount) ? "" : ` · ${formatKRW(amount)}`;
+  return `${prefix ? prefix + " · " : ""}${label}${pctText}${amountText}`;
+}
+
 function bindCompositionEvents() {
+  const donutInfo = document.getElementById("comp-donut-info");
+  if (donutInfo) {
+    document.querySelectorAll("#analysis-content .donut-seg").forEach((seg) => {
+      seg.addEventListener("click", () => {
+        donutInfo.textContent = donutSegInfoText(seg);
+      });
+    });
+  }
+  const compareInfo = document.getElementById("compare-donut-info");
+  if (compareInfo) {
+    document.querySelectorAll("#analysis-content .donut-col").forEach((col) => {
+      const prefix = col.dataset.ctx === "tgt" ? "목표" : "현재";
+      col.querySelectorAll(".donut-seg").forEach((seg) => {
+        seg.addEventListener("click", () => {
+          compareInfo.textContent = donutSegInfoText(seg, prefix);
+        });
+      });
+    });
+  }
   const gotoBtn = document.getElementById("comp-goto-target");
   if (gotoBtn) {
     gotoBtn.addEventListener("click", () => {
@@ -1666,7 +1723,10 @@ function renderAllocModal() {
   const rows = ASSET_TYPES.map(
     (t) => `
     <div class="alloc-row">
-      <span>${t.label}</span>
+      <span style="display:flex;align-items:center;gap:8px;">
+        <span class="legend-swatch" style="background:${typeColor(t.key)}"></span>
+        <span>${t.label}</span>
+      </span>
       <div style="display:flex;align-items:center;gap:4px;">
         <input class="alloc-input input" data-alloc-key="${t.key}" type="number" inputmode="decimal" min="0" max="100"
           style="width:74px;padding:9px 10px;text-align:right;"
