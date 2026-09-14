@@ -78,6 +78,13 @@ function smoothLinePath(pts) {
 
 let lineChartGradientSeq = 0;
 
+// 라벨 텍스트의 대략적인 픽셀 폭을 추정한다 (고정폭 폰트가 아니므로 넉넉하게 계산).
+// 이 값을 기준으로 포인트 간 최소 간격을 늘려서 숫자 라벨끼리 겹치지 않게 한다.
+function estimateLabelWidth(text, fontSize, bold) {
+  const perChar = fontSize * (bold ? 0.62 : 0.56);
+  return text.length * perChar;
+}
+
 function buildLineChartSVG(points, opts = {}) {
   const height = opts.height || 180;
   const padTop = 30;
@@ -88,7 +95,8 @@ function buildLineChartSVG(points, opts = {}) {
   // 포인트마다 값 라벨을 보여줘야 해서, 라벨이 겹치지 않을 최소 간격을 확보 못하면
   // 실제 폭을 늘려 좌우로 스크롤되게 한다.
   const baseWidth = opts.width || 300;
-  const minPointGap = opts.minPointGap || 58;
+  // 옵션으로 넘어온 값은 "최소" 기준일 뿐, 실제 숫자 라벨 폭을 보고 더 필요하면 아래에서 늘어난다.
+  const requestedMinPointGap = opts.minPointGap || 58;
 
   if (!points || points.length === 0) {
     return `<svg viewBox="0 0 ${baseWidth} ${height}" width="100%" height="${height}">
@@ -101,6 +109,21 @@ function buildLineChartSVG(points, opts = {}) {
   }
 
   const n = points.length;
+
+  // 각 포인트의 값 라벨 폭을 미리 계산해서, 이웃한 두 라벨이 겹치지 않으려면
+  // 포인트 간 간격이 최소 얼마나 필요한지 구한다 (옵션 minPointGap은 하한선일 뿐).
+  const labelWidths = points.map((p, i) => {
+    const isLast = i === n - 1;
+    return estimateLabelWidth(shortValueLabel(p.value), isLast ? 11.5 : 10.5, isLast);
+  });
+  let minPointGap = requestedMinPointGap;
+  for (let i = 0; i < n - 1; i++) {
+    // 라벨은 대부분 자기 포인트를 기준으로 가운데(또는 양끝) 정렬되므로,
+    // 이웃 라벨 폭의 절반씩 + 여백(10px)만큼은 떨어뜨려야 겹치지 않는다.
+    const needed = labelWidths[i] / 2 + labelWidths[i + 1] / 2 + 10;
+    if (needed > minPointGap) minPointGap = needed;
+  }
+
   const neededWidth = padLeft + padRight + minPointGap * (n - 1);
   const scrollable = neededWidth > baseWidth;
   const width = scrollable ? neededWidth : baseWidth;

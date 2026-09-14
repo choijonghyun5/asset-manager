@@ -233,9 +233,16 @@ function getRecordsByAsset(assetId) {
     .sort((a, b) => (a.date < b.date ? 1 : -1)); // 최신순
 }
 
-function getCurrentValue(assetId) {
-  const list = getRecordsByAsset(assetId);
-  return list.length > 0 ? list[0].krwAmount : 0;
+// 비중(구성비) 계산 전용 값: 이번 달에 기록이 있으면 그 값을 쓰고,
+// 이번 달 기록이 없으면 바로 전월 기록으로 한 번만 대체한다.
+// 전월에도 기록이 없으면(즉 2개월 넘게 기록이 없으면) 0으로 처리한다(더 과거로는 이월하지 않음).
+function getAllocationValue(assetId) {
+  const curMonthKey = monthKey(todayStr());
+  const prevMonthKey = monthKey(addMonthsStr(todayStr(), -1));
+  const curRec = getRecordForMonth(assetId, curMonthKey);
+  if (curRec) return curRec.krwAmount;
+  const prevRec = getRecordForMonth(assetId, prevMonthKey);
+  return prevRec ? prevRec.krwAmount : 0;
 }
 
 // 전체 기록 중 가장 최근 기록이 속한 월(YYYY-MM). 기록이 하나도 없으면 null.
@@ -352,7 +359,7 @@ function computeOverallGrowth() {
 function getCurrentAllocation() {
   const byType = {};
   state.assets.forEach((a) => {
-    const v = getCurrentValue(a.id);
+    const v = getAllocationValue(a.id);
     byType[a.typeKey] = (byType[a.typeKey] || 0) + v;
   });
   const total = Object.values(byType).reduce((s, v) => s + v, 0);

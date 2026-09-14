@@ -167,6 +167,7 @@ body {
 input, select, textarea, button {
   font-family: inherit;
   font-size: 16px; /* 모바일 확대 방지 */
+  color: inherit; /* 일부 모바일 브라우저의 버튼 기본 파란색 글씨를 막고 본문과 같은 색을 쓰게 함 */
 }
 
 button { cursor: pointer; }
@@ -444,9 +445,9 @@ input[type="date"].input::-webkit-calendar-picker-indicator {
 #assets-swipe-area { touch-action: pan-y; }
 .asset-row:active { background: var(--bg); }
 
-.asset-name { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+.asset-name { font-size: 15px; font-weight: 600; margin-bottom: 2px; color: var(--ink); }
 .asset-type { font-size: 12px; color: var(--ink-soft); }
-.asset-value { font-family: var(--font-mono); font-size: 15px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.asset-value { font-family: var(--font-mono); font-size: 15px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
 .asset-pct { font-size: 12px; color: var(--ink-soft); margin-top: 2px; text-align: right; }
 
 .record-row {
